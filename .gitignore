@@ -50,3 +50,9 @@ import-answers.json
 
 # personal Claude Code settings
 .claude/settings.local.json
+
+.vercel
+.env*
+
+# production temp PINs (local only)
+partner-pins.txt
