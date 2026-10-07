@@ -39,3 +39,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local dev database
+/.pglite/
+
+!.env.example
+
+# one-time import answers
+import-answers.json
+
+# personal Claude Code settings
+.claude/settings.local.json

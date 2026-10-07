@@ -1,0 +1,70 @@
+# Weekly backup of the Neon database into a separate PRIVATE repo (e.g. you/farm-backups).
+#
+# Secrets in THIS repo (Settings → Secrets and variables → Actions):
+#   DATABASE_URL        Neon connection string (use the direct, non-pooled host)
+#   BACKUP_REPO         owner/name of the private backup repo, e.g. rahib/farm-backups
+#   BACKUP_REPO_TOKEN   fine-grained token with "Contents: read and write" on that repo only
+name: Weekly backup
+
+on:
+  schedule:
+    - cron: "0 20 * * 5" # Friday 20:00 UTC = Saturday 02:00 Dhaka
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PG_MAJOR: "17" # must be >= the Neon Postgres version
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: docs
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq "postgresql-client-${PG_MAJOR}"
+
+      - name: Check out backup repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ secrets.BACKUP_REPO }}
+          token: ${{ secrets.BACKUP_REPO_TOKEN }}
+          path: backups
+
+      - name: Dump database and tables
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          PG="/usr/lib/postgresql/${PG_MAJOR}/bin"
+          DAY=$(TZ=Asia/Dhaka date +%F)
+          OUT="backups/${DAY}"
+          mkdir -p "$OUT"
+          "$PG/pg_dump" --format=custom --no-owner --no-privileges --file "$OUT/farm.dump" "$DATABASE_URL"
+          for t in partners settings categories expenses contributions withdrawals audit_log; do
+            if [ "$t" = partners ]; then
+              q="select id, name, phone, share_bp, sort_order, created_at from partners order by id"
+            else
+              q="select * from $t order by id"
+            fi
+            "$PG/psql" "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "\copy ($q) to '$OUT/$t.csv' with (format csv, header, encoding 'UTF8')"
+          done
+          cp docs/backup-README.md backups/README.md
+          ls -la "$OUT"
+
+      - name: Commit
+        working-directory: backups
+        run: |
+          git config user.name "farm-backup-bot"
+          git config user.email "farm-backup-bot@users.noreply.github.com"
+          git add -A
+          git commit -m "Backup $(TZ=Asia/Dhaka date +%F)" || echo "Nothing changed"
+          git push
