@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { CheckCircle2, LogIn, Plus, Settings, Wallet } from "lucide-react";
 import { EntryRow } from "@/components/entry-row";
+import { InstallApp } from "@/components/install-app";
 import { buttonVariants } from "@/components/ui/button";
 import { bnDate, monthOf, taka, todayISO } from "@/lib/format";
 import { buildEntries } from "@/lib/ledger";
@@ -61,6 +62,8 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
           <CheckCircle2 className="size-5" /> সংরক্ষিত হয়েছে
         </p>
       )}
+
+      <InstallApp />
 
       {/* Fund balance */}
       <section

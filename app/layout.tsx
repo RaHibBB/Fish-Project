@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_Bengali } from "next/font/google";
+import { RegisterServiceWorker } from "@/components/install-app";
 import "./globals.css";
 
 const notoBengali = Noto_Sans_Bengali({
@@ -25,7 +26,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="bn" className={`${notoBengali.variable} h-full antialiased`}>
-      <body className="min-h-full bg-muted/40">{children}</body>
+      <body className="min-h-full bg-muted/40">
+        {children}
+        <RegisterServiceWorker />
+      </body>
     </html>
   );
 }

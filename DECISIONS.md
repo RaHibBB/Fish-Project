@@ -104,3 +104,9 @@ Judgment calls made while building from `FISH_PROJECT_SPEC.md`.
 - **Phone numbers**: Bangladeshi mobiles stay `01XXXXXXXXX` (with or without +880); other countries must be typed with `+` or `00` and are stored as `+<digits>` (e.g. Reaz `+971582488557`). A UAE number without the prefix is rejected as ambiguous.
 - **Settings → অ্যাকাউন্ট**: lists everyone who can log in; edit name/phone; **পিন রিসেট** for anyone else (shows a new temporary PIN once, unlocks the account, forces a change at next login); **নতুন অ্যাডমিন**. All audit-logged. This replaces the CLI-only reset, which can't reach the production DB anyway.
 - The three phones and Rahib's account were applied to production by a one-time build step (`scripts/accounts-apply.ts`, temporary `ACCOUNTS_SETUP` env var, removed afterwards); it is a no-op without the variable.
+
+## Installable web app (07/10/2026)
+- Manifest gains `id`, `scope` and **shortcuts** (long-press the icon on Android: নতুন খরচ / টাকা দিন / হিসাব).
+- **Service worker** (`public/sw.js`, registered in production only): caches only immutable app files (`/_next/static`, icons) and an `/offline` page. Pages and data always come from the network — money numbers are never served from a cache — and POSTs are never intercepted, so nothing is queued offline (offline writes would need conflict handling; out of scope).
+- **Install card on Home**: Android/Chrome uses the browser's install prompt; iPhone Safari (no install API) shows "Share → Add to Home Screen". Hidden once installed or after "পরে" (remembered per device in localStorage).
+- Security headers on every response (`nosniff`, `X-Frame-Options: DENY`, strict referrer) and a no-cache + strict CSP header on `/sw.js`.
