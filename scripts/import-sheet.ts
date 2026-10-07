@@ -4,6 +4,10 @@
  *   pnpm import:sheet ./sheet.xlsx              # dry run: prints the report, writes nothing
  *   pnpm import:sheet ./sheet.xlsx --commit     # asks the questions, then imports in one transaction
  *
+ *   pnpm import:sheet ./sheet.xlsx --emit payload.json --answers answers.json
+ *     no questions, no database: writes the import payload for scripts/import-apply.ts
+ *     (for when the database is only reachable from a Vercel build)
+ *
  * Options: --sheet "খরচ (Expense)"  --from 5  --to 38  --answers import-answers.json  --force
  * Uses DATABASE_URL (Neon) if set, otherwise the local PGlite database (stop `pnpm dev` first).
  */
@@ -13,23 +17,15 @@ import path from "node:path";
 import readline from "node:readline";
 import { stdin, stdout } from "node:process";
 import ExcelJS from "exceljs";
-import { asc, sql } from "drizzle-orm";
+import { asc } from "drizzle-orm";
 import { createDb } from "../lib/db/client";
-import { writeAudit } from "../lib/db/audit";
-import { contributionInput, expenseInput } from "../lib/db/mutations";
-import { categories, contributions, expenses, partners } from "../lib/db/schema";
-import { SEED_CATEGORIES, type CategorySlug } from "../lib/db/seed-data";
+import { partners } from "../lib/db/schema";
+import { SEED_CATEGORIES, SEED_PARTNERS } from "../lib/db/seed-data";
+import { AlreadyImportedError, applyPayload, buildPayload, type Answers } from "../lib/import/payload";
 import { buildProposals, describeFlag, parseAmount, type Proposal, type SheetRow } from "../lib/import/sheet";
 import { ddmmyyyy, groupIndian, isISODate } from "../lib/format";
 
 const FUND_TOTAL = 300000;
-
-type Answers = {
-  categories: Record<number, CategorySlug>; // row → slug (only changes from the suggestion)
-  payers: Record<number, "fund" | string>; // row → "fund" or partner name
-  dates: Record<number, string>; // row → yyyy-mm-dd (only changes)
-  contribution: { date: string; method: "cash" | "bkash" | "bank"; split: Record<string, number> };
-};
 
 function args() {
   const a = process.argv.slice(2);
@@ -37,7 +33,7 @@ function args() {
     const i = a.indexOf(flag);
     return i >= 0 ? a[i + 1] : undefined;
   };
-  const VALUE_FLAGS = ["--sheet", "--from", "--to", "--answers"];
+  const VALUE_FLAGS = ["--sheet", "--from", "--to", "--answers", "--emit"];
   const file = a.find((x, i) => !x.startsWith("--") && !VALUE_FLAGS.includes(a[i - 1]));
   return {
     file,
@@ -45,6 +41,7 @@ function args() {
     from: Number(get("--from") ?? 5),
     to: Number(get("--to") ?? 38),
     answers: get("--answers"),
+    emit: get("--emit"),
     commit: a.includes("--commit"),
     force: a.includes("--force"),
   };
@@ -64,7 +61,8 @@ async function readSheet(file: string, sheetName: string, from: number, to: numb
 
   const header = (ws.getRow(from - 1).values as unknown[]).slice(1).map((v) => String(v ?? "").trim());
   const col = (name: string) => {
-    const i = header.findIndex((h) => h.toLowerCase().startsWith(name.toLowerCase()));
+    // Headers are bilingual, e.g. "তারিখ (Date)" on two lines — match the English name anywhere.
+    const i = header.findIndex((h) => h.toLowerCase().includes(name.toLowerCase()));
     if (i < 0) throw new Error(`Column "${name}" not found in header row ${from - 1}: ${header.join(" | ")}`);
     return i + 1;
   };
@@ -133,7 +131,9 @@ function printReport(proposals: Proposal[]) {
 async function main() {
   const opt = args();
   if (!opt.file) {
-    console.error("Usage: pnpm import:sheet <file.xlsx> [--commit] [--sheet name] [--from 5] [--to 38] [--answers file]");
+    console.error(
+      "Usage: pnpm import:sheet <file.xlsx> [--commit | --emit payload.json] [--answers file] [--sheet name] [--from 5] [--to 38]",
+    );
     process.exit(1);
   }
   const { rows, below, sheetName } = await readSheet(opt.file, opt.sheet, opt.from, opt.to);
@@ -143,29 +143,45 @@ async function main() {
   const proposals = buildProposals(rows);
   const sheetTotal = printReport(proposals);
 
-  if (!opt.commit) {
-    console.log("\nDry run only — nothing written. Re-run with --commit to answer the questions and import.");
-    process.exit(0);
-  }
-
-  const db = createDb();
-  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(expenses);
-  if (n > 0 && !opt.force) {
-    console.error(`\nThe database already has ${n} expenses. Refusing to import twice (use --force if you really mean it).`);
-    process.exit(1);
-  }
-  const ps = await db.select().from(partners).orderBy(asc(partners.sortOrder), asc(partners.id));
-  const cats = await db.select().from(categories);
-  if (ps.length === 0) throw new Error("No partners — run `pnpm db:setup` first.");
-
-  const answersPath = opt.answers ?? "import-answers.json";
-  const saved: Partial<Answers> = opt.answers && fs.existsSync(opt.answers) ? JSON.parse(fs.readFileSync(opt.answers, "utf8")) : {};
+  const saved: Partial<Answers> =
+    opt.answers && fs.existsSync(opt.answers) ? JSON.parse(fs.readFileSync(opt.answers, "utf8")) : {};
   const answers: Answers = {
     categories: saved.categories ?? {},
     payers: saved.payers ?? {},
     dates: saved.dates ?? {},
     contribution: saved.contribution ?? { date: "", method: "cash", split: {} },
   };
+  const equalSplit = (names: string[]) =>
+    Object.fromEntries(
+      names.map((n, i) => [
+        n,
+        i === 0 ? FUND_TOTAL - Math.floor(FUND_TOTAL / names.length) * (names.length - 1) : Math.floor(FUND_TOTAL / names.length),
+      ]),
+    );
+
+  // Non-interactive: answers file in, payload file out (no database needed).
+  if (opt.emit) {
+    if (!Object.keys(answers.contribution.split).length) {
+      answers.contribution.split = equalSplit(SEED_PARTNERS.map((p) => p.name));
+      console.log("\n⚑ No fund split in the answers — using the default equal split.");
+    }
+    const payload = buildPayload(proposals, answers);
+    fs.writeFileSync(opt.emit, JSON.stringify(payload));
+    const total = payload.expenses.reduce((a, e) => a + e.amount, 0);
+    console.log(`\n✓ Wrote ${payload.expenses.length} expenses (${tk(total)}) and ${payload.contributions.length} contributions to ${opt.emit}`);
+    for (const c of payload.contributions) console.log(`    ${c.partner} ${tk(c.amount)}`);
+    process.exit(0);
+  }
+
+  if (!opt.commit) {
+    console.log("\nDry run only — nothing written. Re-run with --commit to answer the questions and import.");
+    process.exit(0);
+  }
+
+  const db = createDb();
+  const ps = await db.select().from(partners).orderBy(asc(partners.sortOrder), asc(partners.id));
+  if (ps.length === 0) throw new Error("No partners — run `pnpm db:setup` first.");
+
   // Line iterator instead of rl.question(): works for a terminal and for piped answers.
   const rl = readline.createInterface({ input: stdin, terminal: false });
   const lines = rl[Symbol.asyncIterator]();
@@ -173,8 +189,7 @@ async function main() {
     stdout.write(q);
     const next = await lines.next();
     if (next.done) throw new Error("Input ended before all questions were answered.");
-    if (!stdin.isTTY) stdout.write(`${next.value}
-`);
+    if (!stdin.isTTY) stdout.write(`${next.value}\n`);
     return String(next.value).trim();
   };
 
@@ -219,7 +234,9 @@ async function main() {
   const dated = proposals.filter((p) => p.flags.some((f) => f.kind.startsWith("date_")));
   if (dated.length) {
     console.log("\n— Dates that were fixed or guessed —");
-    for (const p of dated) console.log(`  Row ${p.row}: ${ddmmyyyy(p.date)}  (${p.flags.filter((f) => f.kind.startsWith("date_")).map(describeFlag).join("; ")})`);
+    for (const p of dated) {
+      console.log(`  Row ${p.row}: ${ddmmyyyy(p.date)}  (${p.flags.filter((f) => f.kind.startsWith("date_")).map(describeFlag).join("; ")})`);
+    }
     for (;;) {
       const a = await ask("Row number to correct its date (Enter = accept): ");
       if (!a) break;
@@ -234,10 +251,11 @@ async function main() {
   // 4. The ৳3,00,000 common fund
   console.log(`\n— The ${tk(FUND_TOTAL)} common fund ("From 300K") —`);
   const firstDate = proposals.map((p) => answers.dates[p.row] ?? p.date).filter(Boolean).sort()[0];
+  const defaults = equalSplit(ps.map((p) => p.name));
   for (;;) {
     let sum = 0;
-    for (const [i, p] of ps.entries()) {
-      const def = answers.contribution.split[p.name] ?? (i === 0 ? FUND_TOTAL - Math.floor(FUND_TOTAL / ps.length) * (ps.length - 1) : Math.floor(FUND_TOTAL / ps.length));
+    for (const p of ps) {
+      const def = answers.contribution.split[p.name] ?? defaults[p.name];
       const a = await ask(`  How much did ${p.name} put in? [${def}]: `);
       answers.contribution.split[p.name] = a ? Number(a.replace(/[^\d]/g, "")) : def;
       sum += answers.contribution.split[p.name];
@@ -249,34 +267,12 @@ async function main() {
   const cm = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(cd);
   answers.contribution.date = cm ? `${cm[3]}-${cm[2].padStart(2, "0")}-${cm[1].padStart(2, "0")}` : answers.contribution.date || firstDate;
 
-  // 5. Build final rows and confirm
-  const catId = (slug: string) => cats.find((c) => c.slug === slug)!.id;
-  const partnerId = (name: string) => ps.find((x) => x.name === name)!.id;
-  const finalRows = proposals.map((p) => {
-    const payer = p.payer ?? answers.payers[p.row];
-    return expenseInput.parse({
-      date: answers.dates[p.row] ?? p.date,
-      categoryId: catId(answers.categories[p.row] ?? p.category),
-      amount: p.amount,
-      description: p.description,
-      paidByPartnerId: payer === "fund" ? null : partnerId(payer),
-      labourCount: (answers.categories[p.row] ?? p.category) === "labour" ? p.labourCount : null,
-      labourRate: (answers.categories[p.row] ?? p.category) === "labour" ? p.labourRate : null,
-    });
-  });
-  const importTotal = finalRows.reduce((a, r) => a + r.amount, 0);
-  const contribs = ps.map((p) =>
-    contributionInput.parse({
-      date: answers.contribution.date,
-      partnerId: p.id,
-      amount: answers.contribution.split[p.name],
-      method: answers.contribution.method,
-      note: "পুরনো শিট থেকে (From 300K)",
-    }),
-  ).filter((c) => c.amount > 0);
-
-  console.log(`\nAbout to import ${finalRows.length} expenses totalling ${tk(importTotal)} (sheet total ${tk(sheetTotal)})`);
-  console.log(`and ${contribs.length} contributions: ${contribs.map((c) => `${ps.find((p) => p.id === c.partnerId)!.name} ${tk(c.amount)}`).join(", ")}.`);
+  // 5. Confirm and import
+  const payload = buildPayload(proposals, answers);
+  const importTotal = payload.expenses.reduce((a, e) => a + e.amount, 0);
+  console.log(`\nAbout to import ${payload.expenses.length} expenses totalling ${tk(importTotal)} (sheet total ${tk(sheetTotal)})`);
+  console.log(`and ${payload.contributions.length} contributions: ${payload.contributions.map((c) => `${c.partner} ${tk(c.amount)}`).join(", ")}.`);
+  const answersPath = opt.answers ?? "import-answers.json";
   fs.writeFileSync(answersPath, JSON.stringify(answers, null, 2));
   console.log(`(answers saved to ${path.resolve(answersPath)}; reuse with --answers)`);
   if ((await ask('Type "yes" to import: ')).toLowerCase() !== "yes") {
@@ -286,24 +282,19 @@ async function main() {
   }
   rl.close();
 
-  await db.transaction(async (tx) => {
-    for (const r of finalRows) {
-      const [row] = await tx.insert(expenses).values({ ...r, createdBy: null }).returning();
-      await writeAudit(tx, { actorId: null, action: "import", tableName: "expenses", rowId: row.id, after: row });
+  try {
+    const res = await applyPayload(db, payload, { force: opt.force });
+    console.log(
+      `\n${res.ok ? "✓" : "✗"} App total ${tk(res.total)} ${res.ok ? "matches" : "does NOT match"} the sheet total ${tk(sheetTotal)}.`,
+    );
+    process.exit(res.ok ? 0 : 2);
+  } catch (err) {
+    if (err instanceof AlreadyImportedError) {
+      console.error(`\nThe ${err.message}. Refusing to import twice (use --force if you really mean it).`);
+      process.exit(1);
     }
-    for (const c of contribs) {
-      const [row] = await tx.insert(contributions).values({ ...c, createdBy: null }).returning();
-      await writeAudit(tx, { actorId: null, action: "import", tableName: "contributions", rowId: row.id, after: row });
-    }
-  });
-
-  const [{ total }] = await db
-    .select({ total: sql<number>`coalesce(sum(${expenses.amount}), 0)::int` })
-    .from(expenses)
-    .where(sql`${expenses.voidedAt} is null`);
-  const ok = total === sheetTotal;
-  console.log(`\n${ok ? "✓" : "✗"} App total ${tk(total)} ${ok ? "matches" : "does NOT match"} the sheet total ${tk(sheetTotal)}.`);
-  process.exit(ok ? 0 : 2);
+    throw err;
+  }
 }
 
 main().catch((err) => {

@@ -48,6 +48,25 @@ describe("dates", () => {
   });
 });
 
+describe("real sheet quirks", () => {
+  it("treats yyyy-mm-dd text like a date cell (can be the mm/dd mix-up)", () => {
+    const res = resolveDates([readDate("27/04/26"), readDate("2026-01-05"), readDate("2026-02-05"), readDate("13/05/26")]);
+    expect(res.map((r) => r.date)).toEqual(["2026-04-27", "2026-05-01", "2026-05-02", "2026-05-13"]);
+  });
+
+  it("uses the category column as description when the description is empty, and trims [ name ]", () => {
+    const [pipe, lease, rafi] = buildProposals([
+      row(5, { date: "25/04/26", sheetCategory: "pipe purchase 10 feet", description: null, amount: 1040 }),
+      row(6, { date: "25/04/26", sheetCategory: "Lease ", description: "Chopping tree branches", amount: 3200 }),
+      row(7, { date: "26/04/26", sheetCategory: null, description: "khawa khoroch 1 bosta [ rafi]", amount: 2750, remarks: null }),
+    ]);
+    expect(pipe).toMatchObject({ description: "pipe purchase 10 feet", category: "equipment" });
+    expect(lease.description).toBe("Chopping tree branches");
+    expect(rafi.flags).toContainEqual({ kind: "payer_named", name: "rafi" });
+    expect(rafi.category).toBe("feed");
+  });
+});
+
 describe("rows", () => {
   it("parses amounts", () => {
     expect(parseAmount("4,920")).toBe(4920);

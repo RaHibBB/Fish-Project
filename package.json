@@ -12,7 +12,8 @@
     "db:generate": "drizzle-kit generate",
     "db:setup": "tsx scripts/db-setup.ts",
     "import:sheet": "tsx scripts/import-sheet.ts",
-    "reset-pin": "tsx scripts/reset-pin.ts"
+    "reset-pin": "tsx scripts/reset-pin.ts",
+    "import:apply": "tsx scripts/import-apply.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

@@ -88,10 +88,11 @@ export function readDate(v: unknown): RawDate {
   const parts = s.split(/[/.\-\s]+/).filter(Boolean);
   if (parts.length !== 3) return null;
   let typo = false;
-  // yyyy-mm-dd
+  // yyyy-mm-dd text is machine-written (a date cell Sheets exported as text), so it can carry the
+  // same mm/dd mix-up as a real date cell: allow the swap.
   if (parts[0].length === 4) {
     const [y, m, d] = parts.map(Number);
-    return { y, m, d, raw: s, typo, text: true };
+    return { y, m, d, raw: s, typo, text: false };
   }
   const d = Number(parts[0]);
   let m = Number(parts[1]);
@@ -183,7 +184,9 @@ export function buildProposals(rows: SheetRow[], fallbackStart?: string): Propos
   const dates = resolveDates(rows.map((r) => readDate(r.date)), fallbackStart);
   return rows.map((r, i) => {
     const flags: Flag[] = [...dates[i].flags];
-    const description = text(r.description);
+    // Some rows have their description typed in the "Expense Category" column instead.
+    const sheetCat = text(r.sheetCategory);
+    const description = text(r.description) || (/^lease$/i.test(sheetCat) ? "" : sheetCat);
     const amount = parseAmount(r.amount);
     if (amount === null || amount <= 0) flags.push({ kind: "amount_missing" });
 
@@ -203,7 +206,7 @@ export function buildProposals(rows: SheetRow[], fallbackStart?: string): Propos
 
     // Payer
     const remarks = text(r.remarks);
-    const bracket = /\[([^\]]+)\]/.exec(description)?.[1];
+    const bracket = /\[([^\]]+)\]/.exec(description)?.[1]?.trim();
     const nameInLabourer = labourerText && labourerCount === null ? labourerText : null;
     const named = nameInLabourer ?? bracket ?? KNOWN_NAMES.exec(`${description} ${remarks}`)?.[0] ?? null;
     let payer: Proposal["payer"] = null;
