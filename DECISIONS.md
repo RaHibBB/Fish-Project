@@ -82,7 +82,7 @@ Judgment calls made while building from `FISH_PROJECT_SPEC.md`.
 - **Supplier and voucher number** are appended to the description so nothing from the sheet is lost; the sheet's "Expense Category", "Payment Method" and "Receipt?" columns are not stored.
 - The ৳3,00,000 is imported as one contribution per partner (amounts asked at import time, default equal, must total ৳3,00,000), dated the first expense date unless changed, method নগদ.
 - Imported rows have `created_by = NULL` and an `import` audit action, shown as "পুরনো শিট থেকে আনা হয়েছে".
-- **Backups** go to a separate private repo via a fine-grained token; partner CSVs omit PIN hashes (the `pg_dump` contains them, which is why the repo must be private). `pg_dump` major version is pinned to 17 (Neon's current default) and can be changed in the workflow.
+- **Backups** go to a separate private repo via a fine-grained token; partner CSVs omit PIN hashes (the `pg_dump` contains them, which is why the repo must be private). `pg_dump` major version is pinned to 18 to match Neon (it must be >= the server version; bump `PG_MAJOR` if Neon upgrades).
 - `scripts/reset-pin.ts` covers forgotten PINs / lockouts from the command line (there is no in-app reset, see Step 7).
 
 ## Change after launch — viewing without login (requested by the owner)
