@@ -91,3 +91,10 @@ Judgment calls made while building from `FISH_PROJECT_SPEC.md`.
 - Logged out, Home shows a **লগ ইন** button instead of ⚙, and the entry page shows "সম্পাদনা বা বাতিল করতে লগ ইন করুন" instead of the edit/void buttons. Logging out returns to Home.
 - Partner phone numbers stay private (only shown in Settings). `robots.txt` disallows all crawling so the site doesn't appear in search engines — but the link itself should still be shared only with the family.
 - Since pages no longer read the session cookie, every DB read now calls `connection()` so the numbers are always fetched per request and never frozen into the build.
+
+## Sheet import (done 07/10/2026)
+- Production's `DATABASE_URL` is a sensitive Vercel variable that can't be pulled locally, so the import ran **inside a Vercel build**: `pnpm import:sheet sheet.xlsx --emit payload.json --answers answers.json` produced the reviewed rows, they were placed in a temporary sensitive `IMPORT_DATA` env var, `scripts/import-apply.ts` (in the build command) imported them in one transaction, and the variable was removed. No sheet data is in git. `import:apply` is a no-op without `IMPORT_DATA` and refuses to import when expenses already exist.
+- Result: 33 expenses, ৳3,02,830 — equal to the sheet total.
+- Owner's answers: the "Rahib" row (৳50,000) → paid by রিয়াজ; rows 34 and 38 ("…Rafi", "[ rafi]") → paid by রাফি; the two "mach palanor khoroch" rows (৳76,500, ৳65,900) → পোনা.
+- **Provisional, to be corrected in the app later**: the 11 rows without "From 300K" were imported as paid from the fund; the ৳3,00,000 fund was imported as ৳1,00,000 per partner (spec default) dated 16/04/2026.
+- Real-sheet quirks handled: bilingual headers, `yyyy-mm-dd` text dates carrying the mm/dd mix-up, descriptions typed in the category column, `[ name]` with a space.
