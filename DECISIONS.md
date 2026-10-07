@@ -120,3 +120,4 @@ Judgment calls made while building from `FISH_PROJECT_SPEC.md`.
 - Reports and its print page call `connection()` because their "this month vs last month" depends on today's date (their data is still cached).
 - **PGlite (~25 MB WASM) is no longer shipped** in the deployed functions: it is loaded lazily only when `DATABASE_URL` is missing (local dev/tests) and excluded via `outputFileTracingExcludes`. On Vercel a missing `DATABASE_URL` is a hard error.
 - `db:setup` prints the Neon region (no credentials) so functions can be placed next to the database.
+- **Functions moved to Singapore (`sin1`)**: the Neon database is in `ap-southeast-1` (Singapore) but functions ran in `iad1` (US East), so every query crossed the Pacific. Singapore is next to the DB and the closest Vercel region to Bangladesh and the UAE.
