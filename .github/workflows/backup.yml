@@ -2,8 +2,9 @@
 #
 # Secrets in THIS repo (Settings → Secrets and variables → Actions):
 #   DATABASE_URL        Neon connection string (use the direct, non-pooled host)
-#   BACKUP_REPO         owner/name of the private backup repo, e.g. rahib/farm-backups
-#   BACKUP_REPO_TOKEN   fine-grained token with "Contents: read and write" on that repo only
+#   BACKUP_REPO         owner/name of the private backup repo, e.g. RaHibBB/farm-backups
+#   BACKUP_DEPLOY_KEY   private SSH key whose public half is a *write* deploy key on that repo
+#                       (can only push to the backup repo — nothing else)
 name: Weekly backup
 
 on:
@@ -36,8 +37,17 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ${{ secrets.BACKUP_REPO }}
-          token: ${{ secrets.BACKUP_REPO_TOKEN }}
+          ssh-key: ${{ secrets.BACKUP_DEPLOY_KEY }}
           path: backups
+
+      - name: Check the database secret
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Add the DATABASE_URL secret (Neon connection string) to this repo."
+            exit 1
+          fi
 
       - name: Dump database and tables
         env:

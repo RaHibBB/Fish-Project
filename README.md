@@ -93,9 +93,10 @@ Later schema changes: edit `lib/db/schema.ts`, run `pnpm db:generate`, commit th
 `.github/workflows/backup.yml` runs every Saturday 02:00 Dhaka time (and on demand from the Actions
 tab). It writes a `pg_dump` plus one CSV per table into a dated folder of a **private** repo.
 
-Setup: create a private repo (e.g. `farm-backups`), a fine-grained GitHub token with *Contents: read
-and write* on that repo only, and add these secrets to this repo: `DATABASE_URL`, `BACKUP_REPO`
-(`owner/farm-backups`), `BACKUP_REPO_TOKEN`. Run the workflow once by hand to check it.
+Setup (done): private repo `RaHibBB/farm-backups`, a write **deploy key** on it whose private half is the
+`BACKUP_DEPLOY_KEY` secret here, and `BACKUP_REPO`. The one secret only the owner can add is
+**`DATABASE_URL`** (Neon → Connection string, direct/non-pooled) — then run the workflow once from the
+Actions tab to check it.
 Restore steps are in [docs/backup-README.md](docs/backup-README.md) (copied into the backup repo).
 
 CSV exports are also available any time from the রিপোর্ট tab.
