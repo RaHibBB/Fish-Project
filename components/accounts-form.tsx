@@ -132,7 +132,7 @@ export function AccountsForm({ people, meId }: { people: Person[]; meId: number 
     <section className="space-y-3 rounded-xl border p-4">
       <h2 className="font-semibold">অ্যাকাউন্ট (যারা লগ ইন করতে পারেন)</h2>
       <p className="text-xs text-muted-foreground">
-        সবাই অ্যাডমিন — সবার সমান অধিকার: প্রতিদিনের খরচ ও জমা লেখা, সম্পাদনা, বাতিল, সেটিংস ও অ্যাকাউন্ট। শুধু "পার্টনার"দের টাকার ভাগ আছে; যারা শুধু "অ্যাডমিন" তাঁরা ভাগের হিসাবে আসেন না।
+        সবাই অ্যাডমিন — সবার সমান অধিকার: প্রতিদিনের খরচ ও জমা লেখা, সম্পাদনা, বাতিল, সেটিংস ও অ্যাকাউন্ট। শুধু ‘পার্টনার’দের টাকার ভাগ আছে; যারা শুধু ‘অ্যাডমিন’ তাঁরা ভাগের হিসাবে আসেন না।
         বিদেশি নম্বর +কোড সহ লিখুন (যেমন +971…)।
       </p>
       {result?.ok && <PinNotice result={result} onClose={() => setResult(null)} />}
