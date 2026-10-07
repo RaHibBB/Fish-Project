@@ -10,7 +10,7 @@ import { bnDate, bnDateLong, bnDateTime, taka, toBnDigits } from "@/lib/format";
 import type { EntryKind } from "@/lib/ledger";
 import { getCategory, getContribution, getExpense, getWithdrawal, getEntryHistory, isEntryKind } from "@/lib/server/entry";
 import { getCurrentPartner } from "@/lib/server/auth";
-import { getCategories, getPartners } from "@/lib/server/queries";
+import { getCategories, getPeople } from "@/lib/server/queries";
 import { cn } from "@/lib/utils";
 
 const METHOD: Record<string, string> = { cash: "নগদ", bkash: "বিকাশ", bank: "ব্যাংক" };
@@ -38,7 +38,7 @@ async function Detail({ params }: { params: PageProps<"/ledger/[kind]/[id]">["pa
 
   const [me, partners, categories, history] = await Promise.all([
     getCurrentPartner(),
-    getPartners(),
+    getPeople(),
     getCategories(),
     getEntryHistory(kind, id),
   ]);

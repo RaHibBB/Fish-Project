@@ -43,6 +43,14 @@ describe("phone and PIN rules", () => {
     expect(normalizePhone("12345")).toBeNull();
   });
 
+  it("accepts international numbers with a + or 00 prefix", () => {
+    expect(normalizePhone("+880 1640-420485")).toBe("01640420485");
+    expect(normalizePhone("+971 58 248 8557")).toBe("+971582488557");
+    expect(normalizePhone("00971582488557")).toBe("+971582488557");
+    expect(normalizePhone("0582488557")).toBeNull(); // local UAE format: ambiguous without the prefix
+    expect(normalizePhone("+12")).toBeNull();
+  });
+
   it("flags weak PINs", () => {
     expect(isWeakPin("123456")).toBe(true);
     expect(isWeakPin("111111")).toBe(true);

@@ -71,8 +71,8 @@ async function assertCategory(db: DB, id: number) {
 
 async function assertPartner(db: DB, id: number | null) {
   if (id === null) return;
-  const [p] = await db.select({ id: partners.id }).from(partners).where(eq(partners.id, id));
-  if (!p) throw new MutationError("unknown_partner");
+  const [p] = await db.select({ isPartner: partners.isPartner }).from(partners).where(eq(partners.id, id));
+  if (!p?.isPartner) throw new MutationError("unknown_partner");
 }
 
 // ---------------------------------------------------------------- expenses

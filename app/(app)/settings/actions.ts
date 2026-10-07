@@ -10,6 +10,7 @@ import {
   type partnersInput,
   type settingsInput,
 } from "@/lib/db/settings-mutations";
+import { createAdmin, resetPinFor, updateAccount, type adminInput } from "@/lib/db/account-mutations";
 import { requirePartner } from "@/lib/server/auth";
 import { toUserMessage } from "@/lib/server/action-errors";
 import { ZodError, type z } from "zod";
@@ -19,7 +20,7 @@ export type SimpleResult = { ok: true } | { ok: false; error: string };
 const EXTRA: Record<string, string> = {
   shares_sum: "সবার ভাগ মিলিয়ে ঠিক ১০০% হতে হবে।",
   duplicate_phone: "দুইজনের একই ফোন নম্বর হতে পারবে না।",
-  invalid_phone: "ফোন নম্বর সঠিক নয় (০১XXXXXXXXX)।",
+  invalid_phone: "ফোন নম্বর সঠিক নয় — বাংলাদেশি 01XXXXXXXXX, অন্য দেশের হলে +কোড সহ (যেমন +971…)।",
 };
 
 function fail(err: unknown): SimpleResult {
@@ -60,6 +61,41 @@ export async function saveCategoryAction(
   try {
     if (id === null) await createCategory(db, me.id, input);
     else await updateCategory(db, me.id, id, input);
+    return { ok: true };
+  } catch (err) {
+    return fail(err);
+  }
+}
+
+export type PinResult = { ok: true; name: string; phone: string; pin: string } | { ok: false; error: string };
+
+/** Add a login-only admin; returns the temporary PIN to show once. */
+export async function addAdminAction(input: z.input<typeof adminInput>): Promise<PinResult> {
+  const me = await requirePartner();
+  try {
+    const r = await createAdmin(db, me.id, input);
+    return { ok: true, name: r.name, phone: r.phone, pin: r.pin };
+  } catch (err) {
+    return fail(err) as PinResult;
+  }
+}
+
+/** New temporary PIN for another account (forgotten PIN / locked out). */
+export async function resetPinAction(targetId: number): Promise<PinResult> {
+  const me = await requirePartner();
+  if (targetId === me.id) return { ok: false, error: "নিজের পিন বদলাতে 'পিন বদলান' ব্যবহার করুন।" };
+  try {
+    const r = await resetPinFor(db, me.id, targetId);
+    return { ok: true, name: r.name, phone: r.phone, pin: r.pin };
+  } catch (err) {
+    return fail(err) as PinResult;
+  }
+}
+
+export async function saveAccountAction(id: number, input: z.input<typeof adminInput>): Promise<SimpleResult> {
+  const me = await requirePartner();
+  try {
+    await updateAccount(db, me.id, id, input);
     return { ok: true };
   } catch (err) {
     return fail(err);

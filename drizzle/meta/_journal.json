@@ -15,6 +15,13 @@
       "when": 1791373523739,
       "tag": "0001_no_delete_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791385744822,
+      "tag": "0002_admin_accounts",
+      "breakpoints": true
     }
   ]
 }

@@ -15,6 +15,8 @@ const MESSAGES: Record<string, string> = {
   bad_type: "রসিদের ছবি JPG/PNG হতে হবে।",
   too_big: "রসিদের ছবি ২০০ KB এর বেশি।",
   not_configured: "রসিদ আপলোড চালু নেই।",
+  phone_taken: "এই ফোন নম্বর দিয়ে আগে থেকেই একটি অ্যাকাউন্ট আছে।",
+  invalid_phone: "ফোন নম্বর সঠিক নয় — বাংলাদেশি 01XXXXXXXXX, অন্য দেশের হলে +কোড সহ (যেমন +971…)।",
 };
 
 const FIELD_MESSAGES: Record<string, string> = {

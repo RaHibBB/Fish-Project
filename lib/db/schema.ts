@@ -24,13 +24,21 @@ export const partners = pgTable(
     pinHash: text("pin_hash").notNull(),
     /** Share of costs in basis points; all partners must sum to 10000. */
     shareBp: integer("share_bp").notNull(),
+    /**
+     * false = a login-only admin (e.g. a family member who keeps the books) with no share:
+     * can add and edit entries but never appears in shares, payer lists or settle-up.
+     */
+    isPartner: boolean("is_partner").notNull().default(true),
     mustChangePin: boolean("must_change_pin").notNull().default(true),
     failedLogins: integer("failed_logins").notNull().default(0),
     lockedUntil: timestamp("locked_until", { withTimezone: true }),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: createdAt(),
   },
-  (t) => [check("partners_share_bp_range", sql`${t.shareBp} >= 0 and ${t.shareBp} <= 10000`)],
+  (t) => [
+    check("partners_share_bp_range", sql`${t.shareBp} >= 0 and ${t.shareBp} <= 10000`),
+    check("partners_admin_no_share", sql`${t.isPartner} or ${t.shareBp} = 0`),
+  ],
 );
 
 /** Single-row table (id is always 1). */

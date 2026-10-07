@@ -1,6 +1,6 @@
 // Turns reviewed sheet proposals + answers into a self-contained import payload, and applies it.
 // Used by scripts/import-sheet.ts (local DB access) and scripts/import-apply.ts (inside a Vercel build).
-import { asc, sql } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import type { DB } from "@/lib/db/client";
 import { writeAudit } from "@/lib/db/audit";
 import { contributionInput, expenseInput } from "@/lib/db/mutations";
@@ -72,7 +72,7 @@ export async function applyPayload(db: DB, payload: ImportPayload, opts: { force
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(expenses);
   if (n > 0 && !opts.force) throw new AlreadyImportedError(`database already has ${n} expenses`);
 
-  const ps = await db.select().from(partners).orderBy(asc(partners.sortOrder));
+  const ps = await db.select().from(partners).where(eq(partners.isPartner, true)).orderBy(asc(partners.sortOrder));
   const cats = await db.select().from(categories);
   const partnerId = (name: string) => {
     const p = ps.find((x) => x.name === name);

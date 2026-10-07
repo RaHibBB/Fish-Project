@@ -51,13 +51,16 @@ export const partnersInput = z
 /** Names, phones and shares of all partners at once (shares must total 100%). */
 export async function updatePartners(db: DB, actorId: number, raw: z.input<typeof partnersInput>) {
   const list = partnersInput.parse(raw);
-  const existing = await db.select({ id: partners.id }).from(partners);
+  const existing = await db.select({ id: partners.id }).from(partners).where(eq(partners.isPartner, true));
   if (existing.length !== list.length || !existing.every((e) => list.some((p) => p.id === e.id))) {
     throw new MutationError("unknown_partner");
   }
   return db.transaction(async (tx) => {
     // Free the phone numbers first so two partners can swap numbers without a unique clash.
-    await tx.update(partners).set({ phone: sql`'tmp-' || ${partners.id}` });
+    await tx
+      .update(partners)
+      .set({ phone: sql`'tmp-' || ${partners.id}` })
+      .where(eq(partners.isPartner, true));
     for (const p of list) {
       const [before] = await tx.select().from(partners).where(eq(partners.id, p.id));
       const [after] = await tx

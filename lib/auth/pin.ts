@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import type { DB } from "@/lib/db/client";
@@ -7,11 +8,20 @@ import { partners, type Partner } from "@/lib/db/schema";
 export const MAX_FAILED_LOGINS = 5;
 export const LOCK_MINUTES = 15;
 
-/** "+880 1711-111111" -> "01711111111"; returns null if it isn't a Bangladeshi mobile number. */
+/**
+ * Bangladeshi mobiles → "01711111111" (with or without +880). Other countries need the
+ * international prefix ("+971 58 248 8557" or "00971…") and become "+971582488557".
+ * Returns null for anything else.
+ */
 export function normalizePhone(input: string): string | null {
-  let digits = input.replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d))).replace(/\D/g, "");
+  const latin = input.replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d))).trim();
+  const international = latin.startsWith("+") || latin.startsWith("00");
+  let digits = latin.replace(/\D/g, "");
+  if (international && digits.startsWith("00")) digits = digits.slice(2);
   if (digits.startsWith("880")) digits = digits.slice(2);
-  return /^01[3-9]\d{8}$/.test(digits) ? digits : null;
+  if (/^01[3-9]\d{8}$/.test(digits)) return digits;
+  if (international && /^[1-9]\d{7,14}$/.test(digits)) return `+${digits}`;
+  return null;
 }
 
 /** Accepts Bengali or Latin digits. */
@@ -124,4 +134,12 @@ export async function changePin(
     });
   });
   return { ok: true };
+}
+
+/** Random temporary PIN that passes the PIN rules (must be changed at first login). */
+export function newTempPin(): string {
+  for (;;) {
+    const pin = String(randomInt(0, 1_000_000)).padStart(6, "0");
+    if (!isWeakPin(pin)) return pin;
+  }
 }

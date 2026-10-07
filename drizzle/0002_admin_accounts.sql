@@ -1,0 +1,2 @@
+ALTER TABLE "partners" ADD COLUMN "is_partner" boolean DEFAULT true NOT NULL;--> statement-breakpoint
+ALTER TABLE "partners" ADD CONSTRAINT "partners_admin_no_share" CHECK ("partners"."is_partner" or "partners"."share_bp" = 0);

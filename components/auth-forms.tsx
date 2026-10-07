@@ -61,7 +61,7 @@ export function LoginForm() {
           type="tel"
           inputMode="tel"
           autoComplete="tel"
-          placeholder="01XXXXXXXXX"
+          placeholder="01XXXXXXXXX বা +971…"
           required
           className={fieldClass}
         />

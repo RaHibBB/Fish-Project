@@ -23,10 +23,21 @@ export async function getSettings() {
   return s ?? { id: 1, labourDailyWage: DEFAULT_LABOUR_WAGE, farmName: "চৌধুরী ব্রাদার্স এগ্রো", startDate: null };
 }
 
+/** Partners only (people with a share). Login-only admins are excluded from all money logic. */
 export async function getPartners(): Promise<PartnerOption[]> {
   await connection();
   return db
     .select({ id: partners.id, name: partners.name, shareBp: partners.shareBp })
+    .from(partners)
+    .where(eq(partners.isPartner, true))
+    .orderBy(asc(partners.sortOrder), asc(partners.id));
+}
+
+/** Everyone who can log in (partners and admins) — for names in history and the accounts list. */
+export async function getPeople() {
+  await connection();
+  return db
+    .select({ id: partners.id, name: partners.name, phone: partners.phone, isPartner: partners.isPartner })
     .from(partners)
     .orderBy(asc(partners.sortOrder), asc(partners.id));
 }

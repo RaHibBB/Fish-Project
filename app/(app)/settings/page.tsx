@@ -1,25 +1,28 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { KeyRound, LogOut } from "lucide-react";
 import { logoutAction } from "@/app/login/actions";
 import { PageHeader } from "@/components/page-header";
+import { AccountsForm } from "@/components/accounts-form";
 import { CategoriesForm, FarmSettingsForm, PartnersForm } from "@/components/settings-forms";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import { partners } from "@/lib/db/schema";
 import { requirePartner } from "@/lib/server/auth";
-import { getCategories, getSettings } from "@/lib/server/queries";
+import { getCategories, getPeople, getSettings } from "@/lib/server/queries";
 import { cn } from "@/lib/utils";
 
 async function SettingsContent() {
   const me = await requirePartner();
-  const [settings, categories, partnerRows] = await Promise.all([
+  const [settings, categories, people, partnerRows] = await Promise.all([
     getSettings(),
     getCategories(),
+    getPeople(),
     db
       .select({ id: partners.id, name: partners.name, phone: partners.phone, shareBp: partners.shareBp })
       .from(partners)
+      .where(eq(partners.isPartner, true))
       .orderBy(asc(partners.sortOrder), asc(partners.id)),
   ]);
   return (
@@ -27,6 +30,7 @@ async function SettingsContent() {
       <p className="text-sm text-muted-foreground">আপনি ঢুকেছেন: {me.name}</p>
       <FarmSettingsForm initial={settings} />
       <PartnersForm initial={partnerRows} />
+      <AccountsForm people={people} meId={me.id} />
       <CategoriesForm categories={categories} />
       <section className="space-y-2 rounded-xl border p-4">
         <Link href="/change-pin" className={cn(buttonVariants({ variant: "outline" }), "h-12 w-full text-base")}>
