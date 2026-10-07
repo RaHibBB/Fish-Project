@@ -1,6 +1,6 @@
 /**
  * One-time account setup from the ACCOUNTS_SETUP env var (JSON), run in the Vercel build:
- *   { "phones": { "রাফি": "+880 1640-420485" }, "admins": [{ "name": "রাহিব", "phone": "01723332916" }] }
+ *   { "phones": { "রাফি": "+880 1755-000111" }, "admins": [{ "name": "রাহিব", "phone": "01766000222" }] }
  * Sets partners' phone numbers (by name) and creates login-only admins whose phone isn't used yet,
  * printing their temporary PINs. Idempotent; does nothing without ACCOUNTS_SETUP. Remove the
  * variable afterwards — later changes are made in Settings → অ্যাকাউন্ট.

@@ -101,7 +101,7 @@ Judgment calls made while building from `FISH_PROJECT_SPEC.md`.
 
 ## Admin accounts, international phones, in-app PIN reset (07/10/2026)
 - **Login-only admins**: `partners.is_partner = false` marks an account that can log in and do everything a partner can in the app, but has no share and never appears in payer lists, shares, positions or settle-up (a DB check forbids giving them a share). Rahib was added this way. Names in entry history use everyone; money logic uses partners only.
-- **Phone numbers**: Bangladeshi mobiles stay `01XXXXXXXXX` (with or without +880); other countries must be typed with `+` or `00` and are stored as `+<digits>` (e.g. Reaz `+971582488557`). A UAE number without the prefix is rejected as ambiguous.
+- **Phone numbers**: Bangladeshi mobiles stay `01XXXXXXXXX` (with or without +880); other countries must be typed with `+` or `00` and are stored as `+<digits>` (e.g. Reaz `+971500001234`). A UAE number without the prefix is rejected as ambiguous.
 - **Settings → অ্যাকাউন্ট**: lists everyone who can log in; edit name/phone; **পিন রিসেট** for anyone else (shows a new temporary PIN once, unlocks the account, forces a change at next login); **নতুন অ্যাডমিন**. All audit-logged. This replaces the CLI-only reset, which can't reach the production DB anyway.
 - The three phones and Rahib's account were applied to production by a one-time build step (`scripts/accounts-apply.ts`, temporary `ACCOUNTS_SETUP` env var, removed afterwards); it is a no-op without the variable.
 

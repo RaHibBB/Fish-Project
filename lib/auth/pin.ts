@@ -10,7 +10,7 @@ export const LOCK_MINUTES = 15;
 
 /**
  * Bangladeshi mobiles → "01711111111" (with or without +880). Other countries need the
- * international prefix ("+971 58 248 8557" or "00971…") and become "+971582488557".
+ * international prefix ("+971 50 000 1234" or "00971…") and become "+971500001234".
  * Returns null for anything else.
  */
 export function normalizePhone(input: string): string | null {
