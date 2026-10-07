@@ -9,6 +9,7 @@ import {
 } from "@/lib/db/mutations";
 import type { ContributionMethod } from "@/lib/db/schema";
 import { requirePartner } from "@/lib/server/auth";
+import { dataChanged } from "@/lib/server/cache";
 import { toUserMessage, type ActionResult } from "@/lib/server/action-errors";
 
 export type MoneyInput = {
@@ -29,9 +30,11 @@ export async function saveMoneyAction(input: MoneyInput): Promise<ActionResult> 
     if (kind === "contribution") {
       const data = { ...rest, method };
       const row = id ? await updateContribution(db, partner.id, id, data) : await createContribution(db, partner.id, data);
+      dataChanged();
       return { ok: true, id: row.id };
     }
     const row = id ? await updateWithdrawal(db, partner.id, id, rest) : await createWithdrawal(db, partner.id, rest);
+    dataChanged();
     return { ok: true, id: row.id };
   } catch (err) {
     return { ok: false, error: toUserMessage(err) };

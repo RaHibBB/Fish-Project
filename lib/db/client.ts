@@ -1,8 +1,9 @@
+import path from "node:path";
+import { createRequire } from "node:module";
 import { Pool, neonConfig } from "@neondatabase/serverless";
-import { PGlite } from "@electric-sql/pglite";
+import type { PGlite as PGliteType } from "@electric-sql/pglite";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { drizzle as drizzleNeon } from "drizzle-orm/neon-serverless";
-import { drizzle as drizzlePglite } from "drizzle-orm/pglite";
 import * as schema from "./schema";
 
 export type DB = PgDatabase<PgQueryResultHKT, typeof schema>;
@@ -22,9 +23,14 @@ export function createDb(opts: { url?: string; pgliteDir?: string } = {}): DB {
     if (typeof WebSocket !== "undefined") neonConfig.webSocketConstructor = WebSocket;
     return drizzleNeon({ client: new Pool({ connectionString: url }), schema }) as unknown as DB;
   }
-  if (process.env.NODE_ENV === "production" && !opts.pgliteDir) {
+  if (process.env.VERCEL && !opts.pgliteDir) {
     throw new Error("DATABASE_URL is not set");
   }
+  // PGlite (≈25 MB of WASM) is a local-development/test fallback only. It is loaded lazily and
+  // excluded from the deployed bundle (next.config.ts outputFileTracingExcludes).
+  const req = createRequire(path.join(process.cwd(), "package.json"));
+  const { PGlite } = req("@electric-sql/pglite") as { PGlite: typeof PGliteType };
+  const { drizzle } = req("drizzle-orm/pglite") as typeof import("drizzle-orm/pglite");
   const client = new PGlite(opts.pgliteDir ?? process.env.PGLITE_DIR ?? LOCAL_PGLITE_DIR);
-  return drizzlePglite({ client, schema }) as unknown as DB;
+  return drizzle({ client, schema }) as unknown as DB;
 }

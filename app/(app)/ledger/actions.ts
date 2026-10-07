@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { voidRow, type VoidableTable } from "@/lib/db/mutations";
 import { requirePartner } from "@/lib/server/auth";
+import { dataChanged } from "@/lib/server/cache";
 import { toUserMessage, type ActionResult } from "@/lib/server/action-errors";
 import type { EntryKind } from "@/lib/ledger";
 
@@ -18,6 +19,7 @@ export async function voidEntryAction(kind: EntryKind, id: number, reason: strin
   try {
     if (!(kind in TABLE)) throw new Error("bad kind");
     const row = await voidRow(db, partner.id, TABLE[kind], id, reason);
+    dataChanged();
     return { ok: true, id: row.id };
   } catch (err) {
     return { ok: false, error: toUserMessage(err) };

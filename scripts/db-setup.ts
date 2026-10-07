@@ -10,6 +10,11 @@ import { runMigrations, seed } from "../lib/db/setup";
 async function main() {
   const driver = process.env.DATABASE_URL ? "neon" : "pglite";
   console.log(`Database: ${driver === "neon" ? "Neon (DATABASE_URL)" : "local PGlite (.pglite/)"}`);
+  if (driver === "neon") {
+    // Region only (e.g. "aws-us-east-1"), no credentials — useful to keep functions near the DB.
+    const host = new URL(process.env.DATABASE_URL!).hostname;
+    console.log(`Database region: ${/\.([a-z]+-[a-z]+-[a-z]+-\d)\.|\.([a-z]{2}-[a-z]+-\d)\.(aws|azure)/.exec(host)?.slice(1).filter(Boolean).join(" ") ?? "unknown"}`);
+  }
   const db = createDb();
   await runMigrations(db, driver);
   console.log("✓ migrations applied");

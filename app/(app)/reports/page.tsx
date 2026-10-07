@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 import { FileDown } from "lucide-react";
 import { ExportButtons } from "@/components/export-buttons";
 import { PageHeader } from "@/components/page-header";
@@ -14,6 +15,7 @@ const CSVS = [
 ];
 
 async function Reports() {
+  await connection(); // "this month" comparisons depend on today, so render per request (data itself is cached)
   const [ledger, categories, partners] = await Promise.all([getLedger(), getCategories(), getPartners()]);
   return (
     <div className="space-y-4 p-4">

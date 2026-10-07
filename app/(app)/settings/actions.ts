@@ -12,6 +12,7 @@ import {
 } from "@/lib/db/settings-mutations";
 import { createAdmin, resetPinFor, updateAccount, type adminInput } from "@/lib/db/account-mutations";
 import { requirePartner } from "@/lib/server/auth";
+import { dataChanged } from "@/lib/server/cache";
 import { toUserMessage } from "@/lib/server/action-errors";
 import { ZodError, type z } from "zod";
 
@@ -37,6 +38,7 @@ export async function saveSettingsAction(input: z.input<typeof settingsInput>): 
   const me = await requirePartner();
   try {
     await updateSettings(db, me.id, input);
+    dataChanged();
     return { ok: true };
   } catch (err) {
     return fail(err);
@@ -47,6 +49,7 @@ export async function savePartnersAction(input: z.input<typeof partnersInput>): 
   const me = await requirePartner();
   try {
     await updatePartners(db, me.id, input);
+    dataChanged();
     return { ok: true };
   } catch (err) {
     return fail(err);
@@ -61,6 +64,7 @@ export async function saveCategoryAction(
   try {
     if (id === null) await createCategory(db, me.id, input);
     else await updateCategory(db, me.id, id, input);
+    dataChanged();
     return { ok: true };
   } catch (err) {
     return fail(err);
@@ -74,6 +78,7 @@ export async function addAdminAction(input: z.input<typeof adminInput>): Promise
   const me = await requirePartner();
   try {
     const r = await createAdmin(db, me.id, input);
+    dataChanged();
     return { ok: true, name: r.name, phone: r.phone, pin: r.pin };
   } catch (err) {
     return fail(err) as PinResult;
@@ -96,6 +101,7 @@ export async function saveAccountAction(id: number, input: z.input<typeof adminI
   const me = await requirePartner();
   try {
     await updateAccount(db, me.id, id, input);
+    dataChanged();
     return { ok: true };
   } catch (err) {
     return fail(err);

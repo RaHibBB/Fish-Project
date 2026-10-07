@@ -1,9 +1,11 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 import { AutoPrint } from "@/components/auto-print";
 import { ReportBody } from "@/components/report-body";
 import { getCategories, getLedger, getPartners } from "@/lib/server/queries";
 
 async function Report() {
+  await connection(); // "this month" comparisons depend on today, so render per request (data itself is cached)
   const [ledger, categories, partners] = await Promise.all([getLedger(), getCategories(), getPartners()]);
   return (
     <>

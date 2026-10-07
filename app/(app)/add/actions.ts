@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { createExpense, updateExpense, type ExpenseInput } from "@/lib/db/mutations";
 import { requirePartner } from "@/lib/server/auth";
+import { dataChanged } from "@/lib/server/cache";
 import { toUserMessage, type ActionResult } from "@/lib/server/action-errors";
 import { storeReceipt } from "@/lib/server/receipts";
 import { eq } from "drizzle-orm";
@@ -39,6 +40,7 @@ export async function saveExpenseAction(form: FormData): Promise<ActionResult> {
       receiptUrl,
     };
     const row = id === null ? await createExpense(db, partner.id, input) : await updateExpense(db, partner.id, id, input);
+    dataChanged();
     return { ok: true, id: row.id };
   } catch (err) {
     return { ok: false, error: toUserMessage(err) };

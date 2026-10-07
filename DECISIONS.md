@@ -114,3 +114,9 @@ Judgment calls made while building from `FISH_PROJECT_SPEC.md`.
 ## Backups switched on (07/10/2026)
 - Private repo `RaHibBB/farm-backups` created (README = restore guide). The workflow pushes with a **write deploy key** scoped to that repo only (secret `BACKUP_DEPLOY_KEY`), instead of a personal access token that could reach every repo. The private key existed locally only long enough to be stored as the secret.
 - The workflow fails early with a clear message until the owner adds the `DATABASE_URL` secret (Neon's connection string is a sensitive Vercel variable, so it can't be copied automatically).
+
+## Performance and lighter hosting (07/10/2026)
+- **Reads are cached, writes clear the cache.** Every DB read (`lib/server/queries.ts`, `lib/server/entry.ts`) uses `'use cache: remote'` (Vercel's shared cache) with one tag and `cacheLife("max")`; every server action that writes calls `dataChanged()` → `updateTag`, so the next request reads fresh data (verified: Home total updates immediately after a save). Page views between changes don't touch Neon at all, so the free database can stay asleep and uses far fewer compute hours. This replaces the earlier "never cache money data" rule — correctness now comes from invalidation on every write. The session check (`getCurrentPartner`) and receipts stay uncached. Build-time scripts (import/accounts) are safe because a new build starts with an empty cache.
+- Reports and its print page call `connection()` because their "this month vs last month" depends on today's date (their data is still cached).
+- **PGlite (~25 MB WASM) is no longer shipped** in the deployed functions: it is loaded lazily only when `DATABASE_URL` is missing (local dev/tests) and excluded via `outputFileTracingExcludes`. On Vercel a missing `DATABASE_URL` is a hard error.
+- `db:setup` prints the Neon region (no credentials) so functions can be placed next to the database.
