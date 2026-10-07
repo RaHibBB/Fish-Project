@@ -110,3 +110,7 @@ Judgment calls made while building from `FISH_PROJECT_SPEC.md`.
 - **Service worker** (`public/sw.js`, registered in production only): caches only immutable app files (`/_next/static`, icons) and an `/offline` page. Pages and data always come from the network — money numbers are never served from a cache — and POSTs are never intercepted, so nothing is queued offline (offline writes would need conflict handling; out of scope).
 - **Install card on Home**: Android/Chrome uses the browser's install prompt; iPhone Safari (no install API) shows "Share → Add to Home Screen". Hidden once installed or after "পরে" (remembered per device in localStorage).
 - Security headers on every response (`nosniff`, `X-Frame-Options: DENY`, strict referrer) and a no-cache + strict CSP header on `/sw.js`.
+
+## Backups switched on (07/10/2026)
+- Private repo `RaHibBB/farm-backups` created (README = restore guide). The workflow pushes with a **write deploy key** scoped to that repo only (secret `BACKUP_DEPLOY_KEY`), instead of a personal access token that could reach every repo. The private key existed locally only long enough to be stored as the secret.
+- The workflow fails early with a clear message until the owner adds the `DATABASE_URL` secret (Neon's connection string is a sensitive Vercel variable, so it can't be copied automatically).
