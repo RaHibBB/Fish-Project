@@ -2,17 +2,17 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, verifySession } from "@/lib/auth/token";
 
 /**
- * Optimistic check only: bounce visitors without a valid session cookie to /login.
- * The real check (partner exists, PIN changed) happens in requirePartner() on every page/action.
+ * Viewing is open to everyone; only the screens that change data need a login.
+ * This is the optimistic check (valid cookie); every server action still calls requirePartner().
  */
 export async function proxy(request: NextRequest) {
   const id = await verifySession(request.cookies.get(SESSION_COOKIE)?.value);
-  if (!id) return NextResponse.redirect(new URL("/login", request.url));
-  return NextResponse.next();
+  if (id) return NextResponse.next();
+  const login = new URL("/login", request.url);
+  login.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
+  return NextResponse.redirect(login);
 }
 
 export const config = {
-  matcher: [
-    "/((?!login|_next/static|_next/image|icons/|icon.svg|apple-icon|manifest.webmanifest|favicon.ico).*)",
-  ],
+  matcher: ["/add", "/contribute", "/settings", "/change-pin", "/ledger/:kind/:id/edit"],
 };

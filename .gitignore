@@ -56,3 +56,4 @@ import-answers.json
 
 # production temp PINs (local only)
 partner-pins.txt
+.dev-pins.txt

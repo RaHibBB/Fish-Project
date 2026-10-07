@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { AutoPrint } from "@/components/auto-print";
 import { CategoryDetailBody } from "@/components/category-detail";
 import { buildCategoryDetail, parseCategoryParams, payerLabel } from "@/lib/category-view";
-import { requirePartner } from "@/lib/server/auth";
 import { getCategories, getLedger, getPartners } from "@/lib/server/queries";
 
 async function PrintCategory({
@@ -13,7 +12,6 @@ async function PrintCategory({
   params: PageProps<"/print/categories/[id]">["params"];
   searchParams: PageProps<"/print/categories/[id]">["searchParams"];
 }) {
-  await requirePartner();
   const [{ id }, sp, ledger, categories, partners] = await Promise.all([
     params,
     searchParams,

@@ -2,12 +2,10 @@ import { parseCategoryParams } from "@/lib/category-view";
 import { csvResponse } from "@/lib/csv";
 import { categoryCsv, expensesCsv, moneyCsv, monthlyCsv, partnersCsv } from "@/lib/exports";
 import { todayISO } from "@/lib/format";
-import { getCurrentPartner } from "@/lib/server/auth";
 import { getCategories, getLedger, getPartners } from "@/lib/server/queries";
 
 /** CSV downloads: /export/categories?…, /export/expenses, /export/money, /export/monthly, /export/partners */
 export async function GET(req: Request, ctx: RouteContext<"/export/[name]">) {
-  if (!(await getCurrentPartner())) return new Response("Unauthorized", { status: 401 });
   const { name } = await ctx.params;
   const [ledger, categories, partners] = await Promise.all([getLedger(), getCategories(), getPartners()]);
   const stamp = todayISO();

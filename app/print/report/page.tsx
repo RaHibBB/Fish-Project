@@ -1,11 +1,9 @@
 import { Suspense } from "react";
 import { AutoPrint } from "@/components/auto-print";
 import { ReportBody } from "@/components/report-body";
-import { requirePartner } from "@/lib/server/auth";
 import { getCategories, getLedger, getPartners } from "@/lib/server/queries";
 
 async function Report() {
-  await requirePartner();
   const [ledger, categories, partners] = await Promise.all([getLedger(), getCategories(), getPartners()]);
   return (
     <>

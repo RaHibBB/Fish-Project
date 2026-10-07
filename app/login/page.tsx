@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import Link from "next/link";
 import { LoginForm } from "@/components/auth-forms";
 
 export default function LoginPage() {
@@ -7,9 +9,14 @@ export default function LoginPage() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/icon.svg" alt="" className="mx-auto mb-4 size-16" />
         <h1 className="text-2xl font-bold">চৌধুরী ব্রাদার্স এগ্রো</h1>
-        <p className="text-muted-foreground">খরচ ও পার্টনারদের হিসাব</p>
+        <p className="text-muted-foreground">খরচ বা জমা লিখতে লগ ইন করুন</p>
       </div>
-      <LoginForm />
+      <Suspense>
+        <LoginForm />
+      </Suspense>
+      <Link href="/" className="mt-6 text-center text-primary">
+        লগ ইন ছাড়া হিসাব দেখুন →
+      </Link>
     </main>
   );
 }

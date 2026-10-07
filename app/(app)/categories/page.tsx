@@ -5,11 +5,9 @@ import { ExportButtons } from "@/components/export-buttons";
 import { PageHeader } from "@/components/page-header";
 import { buildCategoryView, categoryQuery, parseCategoryParams, payerLabel } from "@/lib/category-view";
 import { taka } from "@/lib/format";
-import { requirePartner } from "@/lib/server/auth";
 import { getCategories, getLedger, getPartners } from "@/lib/server/queries";
 
 async function Categories({ searchParams }: { searchParams: PageProps<"/categories">["searchParams"] }) {
-  await requirePartner();
   const [sp, ledger, categories, partners] = await Promise.all([
     searchParams,
     getLedger(),

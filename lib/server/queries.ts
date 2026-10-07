@@ -1,8 +1,11 @@
 import "server-only";
+import { connection } from "next/server";
 import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { categories, contributions, expenses, partners, settings, withdrawals } from "@/lib/db/schema";
 import { DEFAULT_LABOUR_WAGE } from "@/lib/db/seed-data";
+
+// Every read calls connection(): money data must be read per request, never baked in at build time.
 
 export type PartnerOption = { id: number; name: string; shareBp: number };
 export type CategoryOption = {
@@ -15,11 +18,13 @@ export type CategoryOption = {
 };
 
 export async function getSettings() {
+  await connection();
   const [s] = await db.select().from(settings).where(eq(settings.id, 1));
   return s ?? { id: 1, labourDailyWage: DEFAULT_LABOUR_WAGE, farmName: "চৌধুরী ব্রাদার্স এগ্রো", startDate: null };
 }
 
 export async function getPartners(): Promise<PartnerOption[]> {
+  await connection();
   return db
     .select({ id: partners.id, name: partners.name, shareBp: partners.shareBp })
     .from(partners)
@@ -27,6 +32,7 @@ export async function getPartners(): Promise<PartnerOption[]> {
 }
 
 export async function getCategories(): Promise<CategoryOption[]> {
+  await connection();
   return db
     .select({
       id: categories.id,
@@ -46,6 +52,7 @@ export async function getCategories(): Promise<CategoryOption[]> {
  * keeps one tested code path for every screen.
  */
 export async function getLedger() {
+  await connection();
   const [e, c, w] = await Promise.all([
     db.select().from(expenses).orderBy(desc(expenses.date), desc(expenses.id)),
     db.select().from(contributions).orderBy(desc(contributions.date), desc(contributions.id)),
@@ -56,6 +63,7 @@ export async function getLedger() {
 
 /** Most recent non-voided expense, for the "আগেরটা আবার" button. */
 export async function getLastExpense() {
+  await connection();
   const rows = await db
     .select()
     .from(expenses)

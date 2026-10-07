@@ -1,15 +1,15 @@
 import { Suspense, type ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil } from "lucide-react";
+import { LogIn, Pencil } from "lucide-react";
 import { CategoryIcon } from "@/components/category-icon";
 import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button";
 import { VoidPanel } from "@/components/void-panel";
 import { bnDate, bnDateLong, bnDateTime, taka, toBnDigits } from "@/lib/format";
 import type { EntryKind } from "@/lib/ledger";
-import { requirePartner } from "@/lib/server/auth";
 import { getCategory, getContribution, getExpense, getWithdrawal, getEntryHistory, isEntryKind } from "@/lib/server/entry";
+import { getCurrentPartner } from "@/lib/server/auth";
 import { getCategories, getPartners } from "@/lib/server/queries";
 import { cn } from "@/lib/utils";
 
@@ -31,13 +31,17 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 }
 
 async function Detail({ params }: { params: PageProps<"/ledger/[kind]/[id]">["params"] }) {
-  await requirePartner();
   const { kind: k, id: rawId } = await params;
   const id = Number(rawId);
   if (!isEntryKind(k) || !Number.isInteger(id)) notFound();
   const kind: EntryKind = k;
 
-  const [partners, categories, history] = await Promise.all([getPartners(), getCategories(), getEntryHistory(kind, id)]);
+  const [me, partners, categories, history] = await Promise.all([
+    getCurrentPartner(),
+    getPartners(),
+    getCategories(),
+    getEntryHistory(kind, id),
+  ]);
   const name = (pid: number | null | undefined) =>
     pid == null ? "ফান্ড" : (partners.find((p) => p.id === pid)?.name ?? "?");
 
@@ -150,7 +154,15 @@ async function Detail({ params }: { params: PageProps<"/ledger/[kind]/[id]">["pa
       )}
       <dl className="divide-y rounded-xl border px-3">{body}</dl>
 
-      {!voided && (
+      {!voided && !me && (
+        <Link
+          href={`/login?next=${encodeURIComponent(`/ledger/${kind}/${id}`)}`}
+          className={cn(buttonVariants({ variant: "outline" }), "h-12 w-full text-base")}
+        >
+          <LogIn className="size-5" /> সম্পাদনা বা বাতিল করতে লগ ইন করুন
+        </Link>
+      )}
+      {!voided && me && (
         <div className="flex flex-wrap gap-2">
           <Link href={`/ledger/${kind}/${id}/edit`} className={cn(buttonVariants({ variant: "outline" }), "h-12 flex-1 text-base")}>
             <Pencil className="size-5" /> সম্পাদনা

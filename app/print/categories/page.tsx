@@ -2,11 +2,9 @@ import { Suspense } from "react";
 import { AutoPrint } from "@/components/auto-print";
 import { CategoryList } from "@/components/category-list";
 import { buildCategoryView, parseCategoryParams, payerLabel } from "@/lib/category-view";
-import { requirePartner } from "@/lib/server/auth";
 import { getCategories, getLedger, getPartners } from "@/lib/server/queries";
 
 async function PrintCategories({ searchParams }: { searchParams: PageProps<"/print/categories">["searchParams"] }) {
-  await requirePartner();
   const [sp, ledger, categories, partners] = await Promise.all([searchParams, getLedger(), getCategories(), getPartners()]);
   const params = parseCategoryParams(sp);
   const view = buildCategoryView(ledger.expenses, categories, params);

@@ -18,6 +18,9 @@ Vercel Blob (receipts) · Zod · Vitest. Runs free on Vercel Hobby + Neon Free.
 | খাত | Spending per category for a period, payer and category selection; category detail; PDF/CSV. |
 | রিপোর্ট | Monthly totals, category breakdown, partner statements, settle-up; PDF and CSV exports. |
 
+**Viewing is open** to anyone with the link (no login); **login is only needed to add, edit, void or change
+settings**. Search engines are blocked via `robots.txt`; share the link only with the family.
+
 Nothing is ever deleted: wrong entries are voided and stay visible. The database blocks `DELETE`,
 and every write is recorded in `audit_log`.
 

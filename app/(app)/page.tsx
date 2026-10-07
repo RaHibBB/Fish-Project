@@ -1,12 +1,12 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { CheckCircle2, Plus, Settings, Wallet } from "lucide-react";
+import { CheckCircle2, LogIn, Plus, Settings, Wallet } from "lucide-react";
 import { EntryRow } from "@/components/entry-row";
 import { buttonVariants } from "@/components/ui/button";
 import { bnDate, monthOf, taka, todayISO } from "@/lib/format";
 import { buildEntries } from "@/lib/ledger";
 import { filterExpenses, fundBalance, partnerPositions, settleUp, totalExpense, type Transfer } from "@/lib/money";
-import { requirePartner } from "@/lib/server/auth";
+import { getCurrentPartner } from "@/lib/server/auth";
 import { getCategories, getLedger, getPartners, getSettings } from "@/lib/server/queries";
 import { cn } from "@/lib/utils";
 
@@ -19,8 +19,8 @@ function settleLine(partnerId: number, transfers: Transfer[]) {
 }
 
 async function Home({ searchParams }: { searchParams: PageProps<"/">["searchParams"] }) {
-  await requirePartner();
-  const [sp, ledger, partners, categories, settings] = await Promise.all([
+  const [me, sp, ledger, partners, categories, settings] = await Promise.all([
+    getCurrentPartner(),
     searchParams,
     getLedger(),
     getPartners(),
@@ -45,9 +45,15 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
           <h1 className="text-lg leading-tight font-bold">{settings.farmName}</h1>
           <p className="text-xs text-muted-foreground">{bnDate(today)}</p>
         </div>
-        <Link href="/settings" aria-label="সেটিংস" className="flex size-11 items-center justify-center rounded-full active:bg-muted">
-          <Settings className="size-6" />
-        </Link>
+        {me ? (
+          <Link href="/settings" aria-label="সেটিংস" className="flex size-11 items-center justify-center rounded-full active:bg-muted">
+            <Settings className="size-6" />
+          </Link>
+        ) : (
+          <Link href="/login" className={cn(buttonVariants({ variant: "outline" }), "h-10 text-base")}>
+            <LogIn className="size-4" /> লগ ইন
+          </Link>
+        )}
       </header>
 
       {sp.saved && (

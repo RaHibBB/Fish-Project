@@ -6,7 +6,6 @@ import { CategoryIcon } from "@/components/category-icon";
 import { ExportButtons } from "@/components/export-buttons";
 import { PageHeader } from "@/components/page-header";
 import { buildCategoryDetail, categoryQuery, parseCategoryParams, payerLabel } from "@/lib/category-view";
-import { requirePartner } from "@/lib/server/auth";
 import { getCategories, getLedger, getPartners } from "@/lib/server/queries";
 
 async function Detail({
@@ -16,7 +15,6 @@ async function Detail({
   params: PageProps<"/categories/[id]">["params"];
   searchParams: PageProps<"/categories/[id]">["searchParams"];
 }) {
-  await requirePartner();
   const [{ id: rawId }, sp, ledger, categories, partners] = await Promise.all([
     params,
     searchParams,

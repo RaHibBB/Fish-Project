@@ -3,7 +3,6 @@ import { FileDown } from "lucide-react";
 import { ExportButtons } from "@/components/export-buttons";
 import { PageHeader } from "@/components/page-header";
 import { ReportBody } from "@/components/report-body";
-import { requirePartner } from "@/lib/server/auth";
 import { getCategories, getLedger, getPartners } from "@/lib/server/queries";
 
 const CSVS = [
@@ -15,7 +14,6 @@ const CSVS = [
 ];
 
 async function Reports() {
-  await requirePartner();
   const [ledger, categories, partners] = await Promise.all([getLedger(), getCategories(), getPartners()]);
   return (
     <div className="space-y-4 p-4">

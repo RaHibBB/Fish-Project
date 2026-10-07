@@ -4,11 +4,9 @@ import { LedgerFilters } from "@/components/ledger-filters";
 import { PageHeader } from "@/components/page-header";
 import { bnDateLong, taka, toBnDigits } from "@/lib/format";
 import { buildEntries, filterEntries, groupByDay, type LedgerFilter } from "@/lib/ledger";
-import { requirePartner } from "@/lib/server/auth";
 import { getCategories, getLedger, getPartners } from "@/lib/server/queries";
 
 async function Ledger({ searchParams }: { searchParams: PageProps<"/ledger">["searchParams"] }) {
-  await requirePartner();
   const [sp, ledger, categories, partners] = await Promise.all([
     searchParams,
     getLedger(),

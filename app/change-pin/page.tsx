@@ -28,7 +28,9 @@ export default function ChangePinPage() {
           <Greeting />
         </Suspense>
       </div>
-      <ChangePinForm />
+      <Suspense>
+        <ChangePinForm />
+      </Suspense>
     </main>
   );
 }

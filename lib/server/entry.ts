@@ -1,4 +1,5 @@
 import "server-only";
+import { connection } from "next/server";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { auditLog, categories, contributions, expenses, withdrawals } from "@/lib/db/schema";
@@ -13,21 +14,25 @@ export function isEntryKind(k: string): k is EntryKind {
 const TABLE_NAMES = { expense: "expenses", contribution: "contributions", withdrawal: "withdrawals" } as const;
 
 export async function getExpense(id: number) {
+  await connection();
   const [row] = await db.select().from(expenses).where(eq(expenses.id, id));
   return row ?? null;
 }
 
 export async function getContribution(id: number) {
+  await connection();
   const [row] = await db.select().from(contributions).where(eq(contributions.id, id));
   return row ?? null;
 }
 
 export async function getWithdrawal(id: number) {
+  await connection();
   const [row] = await db.select().from(withdrawals).where(eq(withdrawals.id, id));
   return row ?? null;
 }
 
 export async function getEntryHistory(kind: EntryKind, id: number) {
+  await connection();
   return db
     .select()
     .from(auditLog)
@@ -36,6 +41,7 @@ export async function getEntryHistory(kind: EntryKind, id: number) {
 }
 
 export async function getCategory(id: number) {
+  await connection();
   const [c] = await db.select().from(categories).where(eq(categories.id, id));
   return c ?? null;
 }

@@ -1,12 +1,19 @@
 "use client";
 
 import { useActionState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { changePinAction, loginAction, type FormState } from "@/app/login/actions";
 
 const fieldClass = "h-14 text-xl tracking-wider";
+
+/** Where to go after login / PIN change (from ?next=, set by the proxy). */
+function NextField() {
+  const next = useSearchParams().get("next");
+  return next ? <input type="hidden" name="redirectTo" value={next} /> : null;
+}
 
 function FormError({ state }: { state: FormState }) {
   if (!state.error) return null;
@@ -43,6 +50,7 @@ export function LoginForm() {
   const [state, action, pending] = useActionState(loginAction, {});
   return (
     <form action={action} className="space-y-5">
+      <NextField />
       <div className="space-y-2">
         <Label htmlFor="phone" className="text-base">
           ফোন নম্বর
@@ -71,6 +79,7 @@ export function ChangePinForm() {
   const [state, action, pending] = useActionState(changePinAction, {});
   return (
     <form action={action} className="space-y-5">
+      <NextField />
       <PinInput name="current" label="বর্তমান পিন" autoFocus />
       <PinInput name="next" label="নতুন পিন (৬ সংখ্যা)" />
       <PinInput name="confirm" label="নতুন পিন আবার দিন" />

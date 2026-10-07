@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { attemptLogin, changePin, type ChangePinError } from "@/lib/auth/pin";
 import { endSession, requirePartner, startSession } from "@/lib/server/auth";
 import { toBnDigits } from "@/lib/format";
+import { safeNext } from "@/lib/safe-next";
 
 export type FormState = { error?: string };
 
@@ -22,7 +23,8 @@ export async function loginAction(_prev: FormState, form: FormData): Promise<For
     return { error: "ফোন নম্বর বা পিন সঠিক নয়।" };
   }
   await startSession(result.partner.id);
-  redirect(result.partner.mustChangePin ? "/change-pin" : "/");
+  const next = safeNext(form.get("redirectTo"));
+  redirect(result.partner.mustChangePin ? `/change-pin?next=${encodeURIComponent(next)}` : next);
 }
 
 const PIN_ERRORS: Record<ChangePinError, string> = {
@@ -41,10 +43,10 @@ export async function changePinAction(_prev: FormState, form: FormData): Promise
     confirm: String(form.get("confirm") ?? ""),
   });
   if (!result.ok) return { error: PIN_ERRORS[result.error] };
-  redirect("/");
+  redirect(safeNext(form.get("redirectTo")));
 }
 
 export async function logoutAction() {
   await endSession();
-  redirect("/login");
+  redirect("/");
 }

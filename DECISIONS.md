@@ -84,3 +84,10 @@ Judgment calls made while building from `FISH_PROJECT_SPEC.md`.
 - Imported rows have `created_by = NULL` and an `import` audit action, shown as "পুরনো শিট থেকে আনা হয়েছে".
 - **Backups** go to a separate private repo via a fine-grained token; partner CSVs omit PIN hashes (the `pg_dump` contains them, which is why the repo must be private). `pg_dump` major version is pinned to 17 (Neon's current default) and can be changed in the workflow.
 - `scripts/reset-pin.ts` covers forgotten PINs / lockouts from the command line (there is no in-app reset, see Step 7).
+
+## Change after launch — viewing without login (requested by the owner)
+- **Anyone with the link can view** Home, হিসাব (incl. entry details and history), খাত, রিপোর্ট, the PDF print pages, CSV exports and receipt photos. **Login is needed only to change data**: add expense, টাকা দিন/ফেরত, edit, void, Settings, change PIN. This overrides spec §3 ("3 partner accounts") for reading only.
+- `proxy.ts` now guards only `/add`, `/contribute`, `/settings`, `/change-pin`, `/ledger/*/*/edit` and sends visitors to `/login?next=…`; after login (and the forced PIN change) they land where they were going. `next` only accepts in-app paths (no open redirect). Every server action still calls `requirePartner()`, so writes are protected even if a page is reached some other way.
+- Logged out, Home shows a **লগ ইন** button instead of ⚙, and the entry page shows "সম্পাদনা বা বাতিল করতে লগ ইন করুন" instead of the edit/void buttons. Logging out returns to Home.
+- Partner phone numbers stay private (only shown in Settings). `robots.txt` disallows all crawling so the site doesn't appear in search engines — but the link itself should still be shared only with the family.
+- Since pages no longer read the session cookie, every DB read now calls `connection()` so the numbers are always fetched per request and never frozen into the build.
