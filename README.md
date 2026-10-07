@@ -50,14 +50,12 @@ pnpm build
    - `DATABASE_URL` — Neon connection string
    - `SESSION_SECRET` — 32+ random characters, e.g. `openssl rand -base64 48`
    - `BLOB_READ_WRITE_TOKEN` — set by the Blob store
-4. Create the tables and partner accounts once, from your computer, with the partners' real phone
-   numbers in the order রাফি, রিয়াজ, অভি:
-
-   ```bash
-   DATABASE_URL="postgresql://…" SEED_PHONES=01711111111,01722222222,01733333333 pnpm db:setup
-   ```
-
-   Give each partner their temporary PIN privately; they must change it at first login.
+4. Tables and partner accounts are created automatically: `vercel.json` runs `pnpm db:setup` before
+   every build (it only applies new migrations and never touches existing partners). On the very first
+   deploy the build log prints the 3 partners' temporary PINs; phones are placeholders
+   (01700000001/2/3) unless the `SEED_PHONES` env var is set (রাফি, রিয়াজ, অভি order). Log in, change
+   the phone numbers in Settings, and give each partner their PIN privately — they must change it at
+   first login.
 5. Deploy. On each phone open the site and use **Add to Home Screen** to install it.
 
 Later schema changes: edit `lib/db/schema.ts`, run `pnpm db:generate`, commit the new file in
