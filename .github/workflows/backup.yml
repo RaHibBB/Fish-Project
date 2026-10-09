@@ -98,8 +98,7 @@ jobs:
             live=$("$PG/psql" "$DATABASE_URL" -tAc "select count(*) from $t")
             restored=$("$PG/psql" "$TEST_URL" -tAc "select count(*) from $t" 2>/dev/null || echo "missing")
             mark="OK"; [ "$live" = "$restored" ] || { mark="MISMATCH"; ok=0; }
-            printf '%-15s live=%-6s restored=%-6s %s
-' "$t" "$live" "$restored" "$mark" >> "$REPORT"
+            printf '%-15s live=%-6s restored=%-6s %s\n' "$t" "$live" "$restored" "$mark" >> "$REPORT"
           done
           cat "$REPORT"
           [ "$ok" = 1 ] && echo "RESULT: backup restores correctly" >> "$REPORT"
@@ -107,7 +106,7 @@ jobs:
 
       - name: Commit
         # Save the backup even if the restore check failed (that run is still marked failed).
-        if: ${{ !cancelled() && steps.dump.outcome == 'success' }}
+        if: steps.dump.outcome == 'success' && !cancelled()
         working-directory: backups
         run: |
           git config user.name "farm-backup-bot"
