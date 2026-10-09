@@ -16,10 +16,15 @@ Vercel Blob (receipts) · Zod · Vitest. Runs free on Vercel Hobby + Neon Free.
 | হিসাব | Every entry by day with daily subtotals; filter by month, type, category, payer; search. Tap to view, edit (logged) or void (বাতিল) with a reason. |
 | **+** | Add expense. Daily labour: **শ্রমিক → count → সংরক্ষণ**. |
 | খাত | Spending per category for a period, payer and category selection; category detail; PDF/CSV. |
-| রিপোর্ট | Monthly totals, category breakdown, partner statements, settle-up; PDF and CSV exports. |
+| রিপোর্ট | Monthly totals, sales & profit, per-pond table, category breakdown, partner statements, settle-up; PDF and CSV exports. |
+| Home shortcuts | **মাছ বিক্রি**, **খাবার লগ**, **পরিবর্তন** (who changed what), **রসিদ** (photo grid); WhatsApp summary button. |
 
 **Viewing is open** to anyone with the link (no login); **login is only needed to add, edit, void or change
 settings**. Search engines are blocked via `robots.txt`; share the link only with the family.
+
+Settings also has ponds, the low cash-box warning and the per-phone **evening reminder** (Web Push; needs
+`NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `CRON_SECRET` in Vercel — already set). Entries saved
+without network wait on the phone and are re-sent safely.
 
 Nothing is ever deleted: wrong entries are voided and stay visible. The database blocks `DELETE`,
 and every write is recorded in `audit_log`.

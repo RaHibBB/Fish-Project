@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 import { CategoryPicker, PeriodBar } from "@/components/category-filters";
 import { CategoryList } from "@/components/category-list";
 import { ExportButtons } from "@/components/export-buttons";
@@ -8,6 +9,7 @@ import { taka } from "@/lib/format";
 import { getCategories, getLedger, getPartners } from "@/lib/server/queries";
 
 async function Categories({ searchParams }: { searchParams: PageProps<"/categories">["searchParams"] }) {
+  await connection(); // uses today's date — render per request (the data itself is cached)
   const [sp, ledger, categories, partners] = await Promise.all([
     searchParams,
     getLedger(),

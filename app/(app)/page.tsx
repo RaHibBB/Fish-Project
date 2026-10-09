@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Fish, History, Images, LogIn, Plus, Settings, Wallet, Wheat } from "lucide-react";
 import { EntryRow } from "@/components/entry-row";
@@ -22,6 +23,7 @@ function settleLine(partnerId: number, transfers: Transfer[]) {
 }
 
 async function Home({ searchParams }: { searchParams: PageProps<"/">["searchParams"] }) {
+  await connection(); // uses today's date — render per request (the data itself is cached)
   const [me, sp, ledger, partners, categories, settings] = await Promise.all([
     getCurrentPartner(),
     searchParams,

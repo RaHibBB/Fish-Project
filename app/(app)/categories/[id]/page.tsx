@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { PeriodBar } from "@/components/category-filters";
 import { CategoryDetailBody } from "@/components/category-detail";
@@ -15,6 +16,7 @@ async function Detail({
   params: PageProps<"/categories/[id]">["params"];
   searchParams: PageProps<"/categories/[id]">["searchParams"];
 }) {
+  await connection(); // uses today's date — render per request (the data itself is cached)
   const [{ id: rawId }, sp, ledger, categories, partners] = await Promise.all([
     params,
     searchParams,

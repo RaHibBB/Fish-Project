@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { AutoPrint } from "@/components/auto-print";
 import { CategoryDetailBody } from "@/components/category-detail";
@@ -12,6 +13,7 @@ async function PrintCategory({
   params: PageProps<"/print/categories/[id]">["params"];
   searchParams: PageProps<"/print/categories/[id]">["searchParams"];
 }) {
+  await connection(); // uses today's date — render per request (the data itself is cached)
   const [{ id }, sp, ledger, categories, partners] = await Promise.all([
     params,
     searchParams,

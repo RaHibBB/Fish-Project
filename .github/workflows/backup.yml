@@ -21,6 +21,16 @@ jobs:
     timeout-minutes: 15
     env:
       PG_MAJOR: "18" # must be >= the Neon Postgres version (Neon runs 18)
+    # Throwaway database used to prove each backup can actually be restored.
+    services:
+      restore-test:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: restore-test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 12
     steps:
       - uses: actions/checkout@v4
         with:
@@ -50,6 +60,7 @@ jobs:
           fi
 
       - name: Dump database and tables
+        id: dump
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
@@ -59,7 +70,7 @@ jobs:
           OUT="backups/${DAY}"
           mkdir -p "$OUT"
           "$PG/pg_dump" --format=custom --no-owner --no-privileges --file "$OUT/farm.dump" "$DATABASE_URL"
-          for t in partners settings categories expenses contributions withdrawals audit_log; do
+          for t in partners settings categories ponds expenses contributions withdrawals sales feedings audit_log; do
             if [ "$t" = partners ]; then
               q="select id, name, phone, share_bp, sort_order, created_at from partners order by id"
             else
@@ -68,9 +79,35 @@ jobs:
             "$PG/psql" "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "\copy ($q) to '$OUT/$t.csv' with (format csv, header, encoding 'UTF8')"
           done
           cp docs/backup-README.md backups/README.md
+          echo "OUT=$OUT" >> "$GITHUB_ENV"
           ls -la "$OUT"
 
+      - name: Restore test (prove the backup works)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TEST_URL: postgresql://postgres:restore-test@localhost:5432/postgres
+        run: |
+          set -uo pipefail
+          PG="/usr/lib/postgresql/${PG_MAJOR}/bin"
+          # Non-fatal warnings (e.g. Neon-specific roles) are fine; the row counts below are the real check.
+          "$PG/pg_restore" --no-owner --no-privileges -d "$TEST_URL" "$OUT/farm.dump" 2> restore-warnings.txt || true
+          REPORT="$OUT/RESTORE-CHECK.txt"
+          echo "Restore check $(TZ=Asia/Dhaka date '+%F %H:%M') — rows in live DB vs restored copy" > "$REPORT"
+          ok=1
+          for t in partners settings categories ponds expenses contributions withdrawals sales feedings audit_log; do
+            live=$("$PG/psql" "$DATABASE_URL" -tAc "select count(*) from $t")
+            restored=$("$PG/psql" "$TEST_URL" -tAc "select count(*) from $t" 2>/dev/null || echo "missing")
+            mark="OK"; [ "$live" = "$restored" ] || { mark="MISMATCH"; ok=0; }
+            printf '%-15s live=%-6s restored=%-6s %s
+' "$t" "$live" "$restored" "$mark" >> "$REPORT"
+          done
+          cat "$REPORT"
+          [ "$ok" = 1 ] && echo "RESULT: backup restores correctly" >> "$REPORT"
+          [ "$ok" = 1 ] || { echo "::error::Backup could not be restored completely — see RESTORE-CHECK.txt"; cat restore-warnings.txt; exit 1; }
+
       - name: Commit
+        # Save the backup even if the restore check failed (that run is still marked failed).
+        if: ${{ !cancelled() && steps.dump.outcome == 'success' }}
         working-directory: backups
         run: |
           git config user.name "farm-backup-bot"

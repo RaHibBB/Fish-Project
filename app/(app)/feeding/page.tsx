@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { VoidFeedingButton } from "@/components/feeding-form";
@@ -12,6 +13,7 @@ import { cn } from "@/lib/utils";
 const kgText = (n: number) => `${toBnDigits(String(Math.round(n * 100) / 100))} কেজি`;
 
 async function Feeding() {
+  await connection(); // uses today's date — render per request (the data itself is cached)
   const [me, rows, ponds] = await Promise.all([getCurrentPartner(), getFeedings(), getPonds()]);
   const pondName = new Map(ponds.map((p) => [p.id, p.name]));
   const month = monthOf(todayISO());

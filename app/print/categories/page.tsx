@@ -1,10 +1,12 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 import { AutoPrint } from "@/components/auto-print";
 import { CategoryList } from "@/components/category-list";
 import { buildCategoryView, parseCategoryParams, payerLabel } from "@/lib/category-view";
 import { getCategories, getLedger, getPartners } from "@/lib/server/queries";
 
 async function PrintCategories({ searchParams }: { searchParams: PageProps<"/print/categories">["searchParams"] }) {
+  await connection(); // uses today's date — render per request (the data itself is cached)
   const [sp, ledger, categories, partners] = await Promise.all([searchParams, getLedger(), getCategories(), getPartners()]);
   const params = parseCategoryParams(sp);
   const view = buildCategoryView(ledger.expenses, categories, params);

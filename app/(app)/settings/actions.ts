@@ -16,6 +16,7 @@ import {
 import { createAdmin, resetPinFor, updateAccount, type adminInput } from "@/lib/db/account-mutations";
 import { requirePartner } from "@/lib/server/auth";
 import { dataChanged } from "@/lib/server/cache";
+import { removeSubscription, saveSubscription, type BrowserSubscription } from "@/lib/server/push";
 import { toUserMessage } from "@/lib/server/action-errors";
 import { ZodError, type z } from "zod";
 
@@ -123,4 +124,21 @@ export async function savePondAction(id: number | null, input: z.input<typeof po
     if (text.includes("ponds_name_unique")) return { ok: false, error: "এই নামে পুকুর আগেই আছে।" };
     return fail(err);
   }
+}
+
+/** This phone wants the evening reminder. */
+export async function subscribeReminderAction(sub: BrowserSubscription): Promise<SimpleResult> {
+  const me = await requirePartner();
+  try {
+    await saveSubscription(me.id, sub);
+    return { ok: true };
+  } catch (err) {
+    return fail(err);
+  }
+}
+
+export async function unsubscribeReminderAction(endpoint: string): Promise<SimpleResult> {
+  await requirePartner();
+  await removeSubscription(endpoint);
+  return { ok: true };
 }

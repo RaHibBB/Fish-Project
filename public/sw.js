@@ -3,7 +3,7 @@
 // - Pages and data: always from the network (money numbers must be live); if the phone is
 //   offline, show the cached /offline page instead of the browser's error.
 // - Never touches POST requests (saving entries), so nothing is queued or replayed offline.
-const VERSION = "v1";
+const VERSION = "v2";
 const STATIC_CACHE = `static-${VERSION}`;
 const OFFLINE_URL = "/offline";
 
@@ -60,4 +60,38 @@ self.addEventListener("fetch", (event) => {
       ),
     );
   }
+});
+
+// Evening reminder (see lib/server/push.ts).
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {}
+  event.waitUntil(
+    self.registration.showNotification(data.title || "খামারের হিসাব", {
+      body: data.body || "",
+      icon: "/icons/192",
+      badge: "/icons/192",
+      lang: "bn",
+      tag: "daily-reminder",
+      data: { url: data.url || "/" },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || "/";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((wins) => {
+      for (const w of wins) {
+        if ("focus" in w) {
+          w.navigate(url);
+          return w.focus();
+        }
+      }
+      return self.clients.openWindow(url);
+    }),
+  );
 });

@@ -5,6 +5,7 @@ import { KeyRound, LogOut } from "lucide-react";
 import { logoutAction } from "@/app/login/actions";
 import { PageHeader } from "@/components/page-header";
 import { AccountsForm } from "@/components/accounts-form";
+import { ReminderToggle } from "@/components/reminder-toggle";
 import { CategoriesForm, FarmSettingsForm, PartnersForm, PondsForm } from "@/components/settings-forms";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { db } from "@/lib/db";
@@ -29,6 +30,7 @@ async function SettingsContent() {
   return (
     <div className="space-y-4 p-4">
       <p className="text-sm text-muted-foreground">আপনি ঢুকেছেন: {me.name}</p>
+      <ReminderToggle />
       <FarmSettingsForm initial={settings} />
       <PartnersForm initial={partnerRows} />
       <AccountsForm people={people} meId={me.id} />
