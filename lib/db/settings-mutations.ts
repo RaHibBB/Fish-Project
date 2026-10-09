@@ -5,12 +5,14 @@ import { normalizePhone } from "@/lib/auth/pin";
 import type { DB } from "./client";
 import { writeAudit } from "./audit";
 import { MutationError } from "./mutations";
-import { categories, partners, settings } from "./schema";
+import { categories, partners, ponds, settings } from "./schema";
 import { CATEGORY_ICON_NAMES } from "./seed-data";
 
 export const settingsInput = z.object({
   farmName: z.string().trim().min(1).max(80),
   labourDailyWage: z.coerce.number().int().min(1).max(100_000),
+  /** 0 = no warning */
+  lowFundAlert: z.coerce.number().int().min(0).max(1_00_00_000).default(10000),
   startDate: z
     .string()
     .refine((s) => s === "" || isISODate(s), "invalid_date")
@@ -102,6 +104,32 @@ export async function updateCategory(db: DB, actorId: number, id: number, raw: z
     if (!before) throw new MutationError("not_found");
     const [row] = await tx.update(categories).set(data).where(eq(categories.id, id)).returning();
     await writeAudit(tx, { actorId, action: "update", tableName: "categories", rowId: id, before, after: row });
+    return row;
+  });
+}
+
+export const pondInput = z.object({
+  name: z.string().trim().min(1).max(40),
+  archived: z.boolean().default(false),
+});
+
+export async function createPond(db: DB, actorId: number, raw: z.input<typeof pondInput>) {
+  const data = pondInput.parse(raw);
+  return db.transaction(async (tx) => {
+    const [{ max }] = await tx.select({ max: sql<number>`coalesce(max(${ponds.sortOrder}), 0)::int` }).from(ponds);
+    const [row] = await tx.insert(ponds).values({ ...data, sortOrder: max + 1 }).returning();
+    await writeAudit(tx, { actorId, action: "create", tableName: "ponds", rowId: row.id, after: row });
+    return row;
+  });
+}
+
+export async function updatePond(db: DB, actorId: number, id: number, raw: z.input<typeof pondInput>) {
+  const data = pondInput.parse(raw);
+  return db.transaction(async (tx) => {
+    const [before] = await tx.select().from(ponds).where(eq(ponds.id, id));
+    if (!before) throw new MutationError("not_found");
+    const [row] = await tx.update(ponds).set(data).where(eq(ponds.id, id)).returning();
+    await writeAudit(tx, { actorId, action: "update", tableName: "ponds", rowId: id, before, after: row });
     return row;
   });
 }

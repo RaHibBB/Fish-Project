@@ -7,6 +7,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   serial,
   text,
@@ -49,6 +50,8 @@ export const settings = pgTable(
     labourDailyWage: integer("labour_daily_wage").notNull().default(820),
     farmName: text("farm_name").notNull().default("চৌধুরী ব্রাদার্স এগ্রো"),
     startDate: date("start_date", { mode: "string" }),
+    /** Home shows a warning when the cash box is below this (0 = off). */
+    lowFundAlert: integer("low_fund_alert").notNull().default(10000),
   },
   (t) => [
     check("settings_single_row", sql`${t.id} = 1`),
@@ -68,6 +71,20 @@ export const categories = pgTable("categories", {
   /** Hidden from the add form; old entries keep their category. Categories are never deleted. */
   archived: boolean("archived").notNull().default(false),
 });
+
+/** Ponds (optional tag on expenses, sales and feedings). Never deleted, only archived. */
+export const ponds = pgTable("ponds", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  archived: boolean("archived").notNull().default(false),
+});
+
+/**
+ * Client-generated id for a save attempt. If the phone re-sends an entry after a dropped
+ * connection, the server finds the same id and returns the existing row instead of a duplicate.
+ */
+const clientId = () => text("client_id").unique();
 
 const voidColumns = () => ({
   voidReason: text("void_reason"),
@@ -96,6 +113,8 @@ export const expenses = pgTable(
     labourCount: integer("labour_count"),
     labourRate: integer("labour_rate"),
     receiptUrl: text("receipt_url"),
+    pondId: integer("pond_id").references(() => ponds.id),
+    clientId: clientId(),
     ...voidColumns(),
     /** null only for rows created by scripts (import). */
     createdBy: integer("created_by").references(() => partners.id),
@@ -128,6 +147,7 @@ export const contributions = pgTable(
     amount: integer("amount").notNull(),
     method: text("method", { enum: contributionMethods }).notNull().default("cash"),
     note: text("note").notNull().default(""),
+    clientId: clientId(),
     ...voidColumns(),
     createdBy: integer("created_by").references(() => partners.id),
     createdAt: createdAt(),
@@ -150,6 +170,7 @@ export const withdrawals = pgTable(
       .references(() => partners.id),
     amount: integer("amount").notNull(),
     note: text("note").notNull().default(""),
+    clientId: clientId(),
     ...voidColumns(),
     createdBy: integer("created_by").references(() => partners.id),
     createdAt: createdAt(),
@@ -160,6 +181,66 @@ export const withdrawals = pgTable(
     voidCheck("withdrawals_void_fields", t),
   ],
 );
+
+/** Fish sold. Money received into the fund, or by a partner who then holds it for the farm. */
+export const sales = pgTable(
+  "sales",
+  {
+    id: serial("id").primaryKey(),
+    date: date("date", { mode: "string" }).notNull(),
+    amount: integer("amount").notNull(),
+    /** e.g. রুই, তেলাপিয়া (free text, optional) */
+    fish: text("fish").notNull().default(""),
+    weightKg: numeric("weight_kg", { precision: 10, scale: 2, mode: "number" }),
+    buyer: text("buyer").notNull().default(""),
+    pondId: integer("pond_id").references(() => ponds.id),
+    /** null = paid into the fund, otherwise the partner who received the cash. */
+    receivedByPartnerId: integer("received_by_partner_id").references(() => partners.id),
+    note: text("note").notNull().default(""),
+    clientId: clientId(),
+    ...voidColumns(),
+    createdBy: integer("created_by").references(() => partners.id),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }),
+  },
+  (t) => [
+    check("sales_amount_positive", sql`${t.amount} > 0`),
+    check("sales_weight_positive", sql`${t.weightKg} is null or ${t.weightKg} > 0`),
+    voidCheck("sales_void_fields", t),
+    index("sales_date_idx").on(t.date),
+  ],
+);
+
+/** Feeding log (quantities, not money — feed purchases are expenses). */
+export const feedings = pgTable(
+  "feedings",
+  {
+    id: serial("id").primaryKey(),
+    date: date("date", { mode: "string" }).notNull(),
+    pondId: integer("pond_id").references(() => ponds.id),
+    feedKg: numeric("feed_kg", { precision: 10, scale: 2, mode: "number" }).notNull(),
+    feedType: text("feed_type").notNull().default(""),
+    note: text("note").notNull().default(""),
+    ...voidColumns(),
+    createdBy: integer("created_by").references(() => partners.id),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    check("feedings_kg_positive", sql`${t.feedKg} > 0`),
+    voidCheck("feedings_void_fields", t),
+    index("feedings_date_idx").on(t.date),
+  ],
+);
+
+/** Web-push subscriptions for the evening reminder (one per device; removable). */
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: serial("id").primaryKey(),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  partnerId: integer("partner_id").references(() => partners.id),
+  createdAt: createdAt(),
+});
 
 export const auditLog = pgTable(
   "audit_log",
@@ -183,3 +264,6 @@ export type Expense = typeof expenses.$inferSelect;
 export type Contribution = typeof contributions.$inferSelect;
 export type Withdrawal = typeof withdrawals.$inferSelect;
 export type Settings = typeof settings.$inferSelect;
+export type Sale = typeof sales.$inferSelect;
+export type Pond = typeof ponds.$inferSelect;
+export type Feeding = typeof feedings.$inferSelect;

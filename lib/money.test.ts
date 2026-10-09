@@ -216,6 +216,12 @@ describe("partner positions", () => {
           exp(1 + rnd(9999), { paidByPartnerId: rnd(2) ? null : 1 + rnd(3) }),
         ),
         withdrawals: Array.from({ length: rnd(2) }, () => withdraw(1 + rnd(3), 1 + rnd(5000))),
+        sales: Array.from({ length: rnd(4) }, () => ({
+          date: "2026-08-01",
+          amount: 1 + rnd(80000),
+          receivedByPartnerId: rnd(2) ? null : 1 + rnd(3),
+          voidedAt: null,
+        })),
       };
       expect(netSum(l, shares)).toBe(0);
       const transfers = settleUp(partnerPositions(l, shares));
@@ -279,5 +285,51 @@ describe("period and category totals", () => {
     expect(labourStats(rows)).toEqual({ labourDays: 16, workingDays: 3, avgPerDay: 16 / 3 });
     expect(change(150, 100)).toEqual({ diff: 50, percent: 50 });
     expect(change(100, 0)).toEqual({ diff: 100, percent: null });
+  });
+});
+
+describe("fish sales", () => {
+  const sale = (amount: number, receivedByPartnerId: number | null = null) => ({
+    date: "2026-08-01",
+    amount,
+    receivedByPartnerId,
+    voidedAt: null,
+  });
+
+  it("money paid into the fund raises the cash box", () => {
+    const l: Ledger = { contributions: [contrib(RAFI, 50000)], expenses: [exp(20000)], withdrawals: [], sales: [sale(30000)] };
+    expect(fundBalance(l)).toBe(60000);
+  });
+
+  it("a partner who keeps sale cash holds it for the farm and the others are owed", () => {
+    const shares: PartnerInfo[] = [
+      { id: RAFI, name: "রাফি", shareBp: 5000 },
+      { id: REAZ, name: "রিয়াজ", shareBp: 5000 },
+    ];
+    // Both put in 50,000; 60,000 spent from the fund; Rafi sold fish for 30,000 and kept the cash.
+    const l: Ledger = {
+      contributions: [contrib(RAFI, 50000), contrib(REAZ, 50000)],
+      expenses: [exp(60000)],
+      withdrawals: [],
+      sales: [sale(30000, RAFI)],
+    };
+    const p = byId(l, shares);
+    expect(fundBalance(l)).toBe(40000);
+    expect(p.get(RAFI)!.salesHeld).toBe(30000);
+    expect(p.get(RAFI)!.fairShare).toBe(15000); // (60,000 − 30,000) / 2
+    expect(p.get(RAFI)!.net).toBe(-15000); // owes Reaz half of the cash he kept
+    expect(p.get(REAZ)!.net).toBe(15000);
+    expect(netSum(l, shares)).toBe(0);
+  });
+
+  it("profit (income > expense) still sums to zero and ignores voided sales", () => {
+    const l: Ledger = {
+      contributions: [contrib(RAFI, 10000), contrib(REAZ, 10000), contrib(OVI, 10000)],
+      expenses: [exp(9000)],
+      withdrawals: [],
+      sales: [sale(50000), sale(7777, OVI), { ...sale(99999), voidedAt: new Date() }],
+    };
+    expect(netSum(l, EQUAL)).toBe(0);
+    expect(fundBalance(l)).toBe(30000 + 50000 - 9000);
   });
 });

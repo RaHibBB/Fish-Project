@@ -22,6 +22,20 @@
       "when": 1791385744822,
       "tag": "0002_admin_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791525868529,
+      "tag": "0003_sales_ponds_feeding",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791525870096,
+      "tag": "0004_sales_ponds_triggers",
+      "breakpoints": true
     }
   ]
 }

@@ -15,11 +15,15 @@ export type ExpenseLike = Voidable & {
 
 export type ContributionLike = Voidable & { date: string; partnerId: number; amount: number };
 export type WithdrawalLike = Voidable & { date: string; partnerId: number; amount: number };
+/** Fish sold. receivedByPartnerId null = paid into the fund. */
+export type SaleLike = Voidable & { date: string; amount: number; receivedByPartnerId: number | null };
 
 export type Ledger = {
   expenses: ExpenseLike[];
   contributions: ContributionLike[];
   withdrawals: WithdrawalLike[];
+  /** optional so older callers/tests without sales keep working */
+  sales?: SaleLike[];
 };
 
 export const TOTAL_BP = 10000;
@@ -36,16 +40,25 @@ function sum<T>(rows: T[], pick: (r: T) => number) {
   return rows.reduce((acc, r) => acc + pick(r), 0);
 }
 
-/** ক্যাশ বাক্স = Σ contributions − Σ expenses paid from fund − Σ withdrawals. */
+/** ক্যাশ বাক্স = Σ contributions + Σ sales paid into the fund − Σ fund expenses − Σ withdrawals. */
 export function fundBalance(ledger: Ledger): number {
   return (
-    sum(active(ledger.contributions), (c) => c.amount) -
+    sum(active(ledger.contributions), (c) => c.amount) +
+    sum(
+      active(ledger.sales ?? []).filter((s) => s.receivedByPartnerId === null),
+      (s) => s.amount,
+    ) -
     sum(
       active(ledger.expenses).filter((e) => e.paidByPartnerId === null),
       (e) => e.amount,
     ) -
     sum(active(ledger.withdrawals), (w) => w.amount)
   );
+}
+
+/** Σ all non-voided sales (income), wherever the cash went. */
+export function totalIncome(sales: SaleLike[] = []): number {
+  return sum(active(sales), (s) => s.amount);
 }
 
 /** Σ all non-voided expenses, whether paid from the fund or personally. */
@@ -84,9 +97,11 @@ export type PartnerPosition = {
   contributed: number;
   paidPersonally: number;
   withdrawn: number;
-  /** দিয়েছেন = contributions + personal payments − withdrawals */
+  /** sale money this partner received and is holding for the farm */
+  salesHeld: number;
+  /** দিয়েছেন = contributions + personal payments − withdrawals − sale money held */
   putIn: number;
-  /** ভাগের খরচ = total expense × share */
+  /** ভাগের খরচ = (total expense − total income) × share */
   fairShare: number;
   /** this partner's slice of the current fund balance */
   fundShare: number;
@@ -98,8 +113,9 @@ export function partnerPositions(ledger: Ledger, partners: PartnerInfo[]): Partn
   const expenses = active(ledger.expenses);
   const contributions = active(ledger.contributions);
   const withdrawals = active(ledger.withdrawals);
-  const fair = allocate(totalExpense(expenses), partners);
-  const fund = allocate(fundBalance({ expenses, contributions, withdrawals }), partners);
+  const sales = active(ledger.sales ?? []);
+  const fair = allocate(totalExpense(expenses) - totalIncome(sales), partners);
+  const fund = allocate(fundBalance({ expenses, contributions, withdrawals, sales }), partners);
 
   return partners.map((p) => {
     const contributed = sum(
@@ -114,7 +130,11 @@ export function partnerPositions(ledger: Ledger, partners: PartnerInfo[]): Partn
       withdrawals.filter((w) => w.partnerId === p.id),
       (w) => w.amount,
     );
-    const putIn = contributed + paidPersonally - withdrawn;
+    const salesHeld = sum(
+      sales.filter((s) => s.receivedByPartnerId === p.id),
+      (s) => s.amount,
+    );
+    const putIn = contributed + paidPersonally - withdrawn - salesHeld;
     const fairShare = fair.get(p.id)!;
     const fundShare = fund.get(p.id)!;
     return {
@@ -124,6 +144,7 @@ export function partnerPositions(ledger: Ledger, partners: PartnerInfo[]): Partn
       contributed,
       paidPersonally,
       withdrawn,
+      salesHeld,
       putIn,
       fairShare,
       fundShare,
