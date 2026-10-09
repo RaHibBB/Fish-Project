@@ -8,9 +8,9 @@ import { buttonVariants } from "@/components/ui/button";
 import { VoidPanel } from "@/components/void-panel";
 import { bnDate, bnDateLong, bnDateTime, taka, toBnDigits } from "@/lib/format";
 import type { EntryKind } from "@/lib/ledger";
-import { getCategory, getContribution, getExpense, getWithdrawal, getEntryHistory, isEntryKind } from "@/lib/server/entry";
+import { getCategory, getContribution, getExpense, getSale, getWithdrawal, getEntryHistory, isEntryKind } from "@/lib/server/entry";
 import { getCurrentPartner } from "@/lib/server/auth";
-import { getCategories, getPeople } from "@/lib/server/queries";
+import { getCategories, getPeople, getPonds } from "@/lib/server/queries";
 import { cn } from "@/lib/utils";
 
 const METHOD: Record<string, string> = { cash: "নগদ", bkash: "বিকাশ", bank: "ব্যাংক" };
@@ -42,6 +42,7 @@ async function Detail({ params }: { params: PageProps<"/ledger/[kind]/[id]">["pa
     getCategories(),
     getEntryHistory(kind, id),
   ]);
+  const ponds = await getPonds();
   const name = (pid: number | null | undefined) =>
     pid == null ? "ফান্ড" : (partners.find((p) => p.id === pid)?.name ?? "?");
 
@@ -84,6 +85,27 @@ async function Detail({ params }: { params: PageProps<"/ledger/[kind]/[id]">["pa
         )}
       </>
     );
+  } else if (kind === "sale") {
+    const s = await getSale(id);
+    if (!s) notFound();
+    if (s.voidedAt) voided = { reason: s.voidReason, by: s.voidedBy, at: s.voidedAt };
+    const pond = s.pondId ? ponds.find((p) => p.id === s.pondId)?.name : null;
+    title = (
+      <div>
+        <div className="text-lg font-semibold">মাছ বিক্রি{s.fish && ` · ${s.fish}`}</div>
+        <div className={cn("text-3xl font-bold text-primary", s.voidedAt && "line-through")}>+{taka(s.amount)}</div>
+      </div>
+    );
+    body = (
+      <>
+        <Row label="তারিখ">{bnDateLong(s.date)}</Row>
+        <Row label="টাকা কোথায়">{s.receivedByPartnerId === null ? "ফান্ডে জমা" : `${name(s.receivedByPartnerId)} নিয়েছেন`}</Row>
+        {s.weightKg && <Row label="ওজন">{toBnDigits(String(s.weightKg))} কেজি</Row>}
+        {pond && <Row label="পুকুর">{pond}</Row>}
+        {s.buyer && <Row label="ক্রেতা">{s.buyer}</Row>}
+        {s.note && <Row label="নোট">{s.note}</Row>}
+      </>
+    );
   } else {
     const c = kind === "contribution" ? await getContribution(id) : null;
     const m = kind === "contribution" ? c : await getWithdrawal(id);
@@ -122,6 +144,12 @@ async function Detail({ params }: { params: PageProps<"/ledger/[kind]/[id]">["pa
         return `${toBnDigits(Number(v))} জন`;
       case "method":
         return METHOD[String(v)] ?? String(v);
+      case "receivedByPartnerId":
+        return v == null ? "ফান্ড" : name(v as number);
+      case "pondId":
+        return ponds.find((p) => p.id === v)?.name ?? "—";
+      case "weightKg":
+        return `${toBnDigits(String(v))} কেজি`;
       case "receiptUrl":
         return "ছবি";
       default:
@@ -140,6 +168,11 @@ async function Detail({ params }: { params: PageProps<"/ledger/[kind]/[id]">["pa
     labourRate: "মজুরি",
     method: "কীভাবে",
     receiptUrl: "রসিদ",
+    receivedByPartnerId: "টাকা কোথায়",
+    pondId: "পুকুর",
+    weightKg: "ওজন",
+    fish: "মাছ",
+    buyer: "ক্রেতা",
   };
 
   return (

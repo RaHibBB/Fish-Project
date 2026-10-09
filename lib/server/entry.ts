@@ -3,16 +3,16 @@ import { cacheLife, cacheTag } from "next/cache";
 import { DATA_TAG } from "./cache";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { auditLog, categories, contributions, expenses, withdrawals } from "@/lib/db/schema";
+import { auditLog, categories, contributions, expenses, sales, withdrawals } from "@/lib/db/schema";
 import type { EntryKind } from "@/lib/ledger";
 
-export const ENTRY_KINDS = ["expense", "contribution", "withdrawal"] as const;
+export const ENTRY_KINDS = ["expense", "contribution", "withdrawal", "sale"] as const;
 
 export function isEntryKind(k: string): k is EntryKind {
   return (ENTRY_KINDS as readonly string[]).includes(k);
 }
 
-const TABLE_NAMES = { expense: "expenses", contribution: "contributions", withdrawal: "withdrawals" } as const;
+const TABLE_NAMES = { expense: "expenses", contribution: "contributions", withdrawal: "withdrawals", sale: "sales" } as const;
 
 export async function getExpense(id: number) {
   "use cache: remote";
@@ -35,6 +35,14 @@ export async function getWithdrawal(id: number) {
   cacheTag(DATA_TAG);
   cacheLife("max");
   const [row] = await db.select().from(withdrawals).where(eq(withdrawals.id, id));
+  return row ?? null;
+}
+
+export async function getSale(id: number) {
+  "use cache: remote";
+  cacheTag(DATA_TAG);
+  cacheLife("max");
+  const [row] = await db.select().from(sales).where(eq(sales.id, id));
   return row ?? null;
 }
 

@@ -127,13 +127,14 @@ export function monthlyCsv(ledger: FullLedger): Row[] {
 export function partnersCsv(ledger: FullLedger, partners: PartnerInfo[]): Row[] {
   const positions = partnerPositions(ledger, partners);
   return [
-    ["পার্টনার", "ভাগ %", "ফান্ডে জমা", "নিজে খরচ করেছেন", "ফেরত নিয়েছেন", "মোট দিয়েছেন", "ভাগের খরচ", "ফান্ডে ভাগ", "অবস্থান"],
+    ["পার্টনার", "ভাগ %", "ফান্ডে জমা", "নিজে খরচ করেছেন", "ফেরত নিয়েছেন", "বিক্রির টাকা হাতে", "মোট দিয়েছেন", "ভাগের খরচ", "ফান্ডে ভাগ", "অবস্থান"],
     ...positions.map((p) => [
       p.name,
       p.shareBp / 100,
       p.contributed,
       p.paidPersonally,
       p.withdrawn,
+      p.salesHeld,
       p.putIn,
       p.fairShare,
       p.fundShare,
@@ -142,5 +143,40 @@ export function partnersCsv(ledger: FullLedger, partners: PartnerInfo[]): Row[] 
     [],
     ["কে", "কাকে", "টাকা"],
     ...settleUp(positions).map((t) => [t.fromName, t.toName, t.amount]),
+  ];
+}
+
+type SaleRow = {
+  id: number;
+  date: string;
+  amount: number;
+  fish: string;
+  weightKg: number | null;
+  buyer: string;
+  pondId: number | null;
+  receivedByPartnerId: number | null;
+  note: string;
+  voidedAt: Date | string | null;
+  voidReason: string | null;
+};
+
+export function salesCsv(sales: SaleRow[], partners: PartnerInfo[], ponds: { id: number; name: string }[]): Row[] {
+  const name = namer(partners);
+  const pond = new Map(ponds.map((p) => [p.id, p.name]));
+  return [
+    ["তারিখ", "মাছ", "কেজি", "টাকা", "পুকুর", "ক্রেতা", "টাকা কোথায়", "নোট", "অবস্থা"],
+    ...[...sales]
+      .sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)
+      .map((s) => [
+        ddmmyyyy(s.date),
+        s.fish,
+        s.weightKg,
+        s.amount,
+        s.pondId ? (pond.get(s.pondId) ?? "") : "",
+        s.buyer,
+        s.receivedByPartnerId === null ? "ফান্ডে" : name(s.receivedByPartnerId),
+        s.note,
+        status(s),
+      ]),
   ];
 }

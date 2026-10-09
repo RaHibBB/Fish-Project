@@ -11,6 +11,7 @@ const TABLE: Record<EntryKind, VoidableTable> = {
   expense: "expenses",
   contribution: "contributions",
   withdrawal: "withdrawals",
+  sale: "sales",
 };
 
 /** Mark an entry বাতিল with a reason. The row stays; it just stops counting. */

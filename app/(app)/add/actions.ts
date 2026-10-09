@@ -19,6 +19,13 @@ export async function saveExpenseAction(form: FormData): Promise<ActionResult> {
   try {
     const id = optionalInt(form.get("id"));
     const paidBy = String(form.get("paidBy") ?? "fund");
+    const clientId = id === null ? String(form.get("clientId") ?? "") || null : null;
+
+    // A re-send of an entry that already arrived: done, don't upload the photo again.
+    if (clientId) {
+      const [already] = await db.select({ id: expenses.id }).from(expenses).where(eq(expenses.clientId, clientId));
+      if (already) return { ok: true, id: already.id };
+    }
 
     let receiptUrl: string | null = null;
     const file = form.get("receipt");
@@ -38,6 +45,8 @@ export async function saveExpenseAction(form: FormData): Promise<ActionResult> {
       labourCount: optionalInt(form.get("labourCount")),
       labourRate: optionalInt(form.get("labourRate")),
       receiptUrl,
+      pondId: optionalInt(form.get("pondId")),
+      clientId,
     };
     const row = id === null ? await createExpense(db, partner.id, input) : await updateExpense(db, partner.id, id, input);
     dataChanged();

@@ -4,11 +4,12 @@ import { FileDown } from "lucide-react";
 import { ExportButtons } from "@/components/export-buttons";
 import { PageHeader } from "@/components/page-header";
 import { ReportBody } from "@/components/report-body";
-import { getCategories, getLedger, getPartners } from "@/lib/server/queries";
+import { getCategories, getLedger, getPartners, getPonds } from "@/lib/server/queries";
 
 const CSVS = [
   { href: "/export/expenses", label: "সব খরচ" },
   { href: "/export/money", label: "জমা ও ফেরত" },
+  { href: "/export/sales", label: "মাছ বিক্রি" },
   { href: "/export/monthly", label: "মাসিক মোট" },
   { href: "/export/categories", label: "খাত অনুযায়ী" },
   { href: "/export/partners", label: "পার্টনার ও সেটেলমেন্ট" },
@@ -16,7 +17,7 @@ const CSVS = [
 
 async function Reports() {
   await connection(); // "this month" comparisons depend on today, so render per request (data itself is cached)
-  const [ledger, categories, partners] = await Promise.all([getLedger(), getCategories(), getPartners()]);
+  const [ledger, categories, partners, ponds] = await Promise.all([getLedger(), getCategories(), getPartners(), getPonds()]);
   return (
     <div className="space-y-4 p-4">
       <ExportButtons pdf="/print/report" csv="/export/expenses" csvLabel="Excel/CSV" />
@@ -32,7 +33,7 @@ async function Reports() {
           ))}
         </ul>
       </details>
-      <ReportBody ledger={ledger} categories={categories} partners={partners} hrefForCategory={(id) => `/categories/${id}`} />
+      <ReportBody ledger={ledger} categories={categories} partners={partners} ponds={ponds} hrefForCategory={(id) => `/categories/${id}`} />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowDownLeft, ArrowUpRight, Paperclip } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Fish, Paperclip } from "lucide-react";
 import { CategoryIcon } from "@/components/category-icon";
 import { bnDate, taka, toBnDigits } from "@/lib/format";
 import type { LedgerEntry } from "@/lib/ledger";
@@ -19,10 +19,18 @@ export function EntryRow({ entry, showDate = false }: { entry: LedgerEntry; show
         <span
           className={cn(
             "flex size-9 shrink-0 items-center justify-center rounded-full",
-            entry.kind === "contribution" ? "bg-primary/10 text-primary" : "bg-amber-500/10 text-amber-600",
+            entry.kind === "contribution" || entry.kind === "sale"
+              ? "bg-primary/10 text-primary"
+              : "bg-amber-500/10 text-amber-600",
           )}
         >
-          {entry.kind === "contribution" ? <ArrowDownLeft className="size-5" /> : <ArrowUpRight className="size-5" />}
+          {entry.kind === "sale" ? (
+            <Fish className="size-5" />
+          ) : entry.kind === "contribution" ? (
+            <ArrowDownLeft className="size-5" />
+          ) : (
+            <ArrowUpRight className="size-5" />
+          )}
         </span>
       )}
       <div className="min-w-0 flex-1">
@@ -44,10 +52,10 @@ export function EntryRow({ entry, showDate = false }: { entry: LedgerEntry; show
           className={cn(
             "font-semibold tabular-nums",
             entry.voided && "line-through",
-            entry.kind === "contribution" && "text-primary",
+            (entry.kind === "contribution" || entry.kind === "sale") && "text-primary",
           )}
         >
-          {isMoney && entry.kind === "contribution" ? "+" : ""}
+          {isMoney && (entry.kind === "contribution" || entry.kind === "sale") ? "+" : ""}
           {taka(entry.amount)}
         </div>
         {entry.voided && (

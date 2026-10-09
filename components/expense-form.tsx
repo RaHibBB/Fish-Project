@@ -12,7 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { compressImage } from "@/lib/client/compress-image";
 import { taka, toBnDigits, todayISO } from "@/lib/format";
-import type { CategoryOption, PartnerOption } from "@/lib/server/queries";
+import type { CategoryOption, PartnerOption, PondOption } from "@/lib/server/queries";
+import { PondChips } from "@/components/pond-chips";
+import { fileToDataUrl, isNetworkError, queue, type ExpensePayload } from "@/lib/client/outbox";
 import { cn } from "@/lib/utils";
 
 /** Quick chips in display order; label overrides keep chips short. */
@@ -36,6 +38,7 @@ export type ExpenseDraft = {
   labourCount: number | null;
   labourRate: number | null;
   hasReceipt?: boolean;
+  pondId?: number | null;
 };
 
 export function ExpenseForm({
@@ -44,9 +47,11 @@ export function ExpenseForm({
   wage,
   last,
   initial,
+  ponds = [],
 }: {
   categories: CategoryOption[];
   partners: PartnerOption[];
+  ponds?: PondOption[];
   wage: number;
   last?: ExpenseDraft | null;
   initial?: ExpenseDraft;
@@ -64,6 +69,9 @@ export function ExpenseForm({
   const [receipt, setReceipt] = useState<File | null>(null);
   const [keepReceipt, setKeepReceipt] = useState(Boolean(initial?.hasReceipt));
   const [showAll, setShowAll] = useState(false);
+  const [pondId, setPondId] = useState<number | null>(initial?.pondId ?? null);
+  // One id per entry being written: a re-send after a dropped connection can't save it twice.
+  const [clientId, setClientId] = useState(() => crypto.randomUUID());
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -122,11 +130,50 @@ export function ExpenseForm({
       fd.set("labourCount", String(count));
       fd.set("labourRate", String(rate));
     }
+    if (pondId) fd.set("pondId", String(pondId));
+    if (!editing) fd.set("clientId", clientId);
     if (receipt) fd.set("receipt", receipt);
     else if (keepReceipt) fd.set("keepReceipt", "1");
 
+    const resetForNext = () => {
+      setCategoryId(null);
+      setAmountStr("");
+      setCountStr("");
+      setRate(wage);
+      setDescription("");
+      setReceipt(null);
+      setError(null);
+      setClientId(crypto.randomUUID());
+    };
+
     startTransition(async () => {
-      const res = await saveExpenseAction(fd);
+      let res: Awaited<ReturnType<typeof saveExpenseAction>>;
+      try {
+        res = await saveExpenseAction(fd);
+      } catch (err) {
+        if (editing || !isNetworkError(err)) {
+          setError("সংরক্ষণ করা যায়নি, আবার চেষ্টা করুন।");
+          return;
+        }
+        // No connection: keep it on this phone and send it later.
+        const payload: ExpensePayload = {};
+        fd.forEach((v, k) => {
+          if (typeof v === "string") payload[k] = v;
+        });
+        if (receipt) payload.receiptDataUrl = await fileToDataUrl(receipt);
+        queue({
+          id: clientId,
+          kind: "expense",
+          payload,
+          summary: `${selected!.name} ${taka(amount)}`,
+          savedAt: Date.now(),
+        });
+        if (another) {
+          setFlash(`নেট নেই — ফোনে রাখা হলো: ${selected!.name} ${taka(amount)}`);
+          resetForNext();
+        } else router.push("/");
+        return;
+      }
       if (!res.ok) {
         setError(res.error);
         return;
@@ -134,13 +181,7 @@ export function ExpenseForm({
       if (another) {
         // Stay on the form with the same date and payer.
         setFlash(`সংরক্ষিত: ${selected!.name} ${taka(amount)}`);
-        setCategoryId(null);
-        setAmountStr("");
-        setCountStr("");
-        setRate(wage);
-        setDescription("");
-        setReceipt(null);
-        setError(null);
+        resetForNext();
         window.scrollTo({ top: 0, behavior: "smooth" });
         router.refresh();
       } else {
@@ -295,6 +336,8 @@ export function ExpenseForm({
         <h2 className="text-sm text-muted-foreground">তারিখ</h2>
         <DateField value={date} onChange={setDate} />
       </section>
+
+      <PondChips ponds={ponds} value={pondId} onChange={setPondId} />
 
       <section className="space-y-2">
         <h2 className="text-sm text-muted-foreground">নোট (ইচ্ছা হলে)</h2>

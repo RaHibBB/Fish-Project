@@ -3,7 +3,13 @@
 import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Pencil, Plus } from "lucide-react";
-import { saveCategoryAction, savePartnersAction, saveSettingsAction, type SimpleResult } from "@/app/(app)/settings/actions";
+import {
+  saveCategoryAction,
+  savePartnersAction,
+  savePondAction,
+  saveSettingsAction,
+  type SimpleResult,
+} from "@/app/(app)/settings/actions";
 import { CATEGORY_ICONS, CategoryIcon } from "@/components/category-icon";
 import { DateField } from "@/components/date-field";
 import { Button } from "@/components/ui/button";
@@ -48,11 +54,12 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
 export function FarmSettingsForm({
   initial,
 }: {
-  initial: { farmName: string; labourDailyWage: number; startDate: string | null };
+  initial: { farmName: string; labourDailyWage: number; startDate: string | null; lowFundAlert: number };
 }) {
   const [farmName, setFarmName] = useState(initial.farmName);
   const [wage, setWage] = useState(String(initial.labourDailyWage));
   const [startDate, setStartDate] = useState(initial.startDate ?? "");
+  const [lowFund, setLowFund] = useState(String(initial.lowFundAlert));
   const { pending, run, status } = useSave();
   return (
     <Card title="খামার">
@@ -77,11 +84,24 @@ export function FarmSettingsForm({
         <Label>শুরুর তারিখ</Label>
         <DateField value={startDate} onChange={setStartDate} quick={false} />
       </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="lowFund">ক্যাশ বাক্স কম হলে সতর্কতা (৳)</Label>
+        <Input
+          id="lowFund"
+          type="number"
+          inputMode="numeric"
+          min={0}
+          value={lowFund}
+          onChange={(e) => setLowFund(e.target.value)}
+          className="h-12 text-base"
+        />
+        <p className="text-xs text-muted-foreground">এর নিচে নামলে হোমে হলুদ সতর্কতা দেখাবে। ০ দিলে বন্ধ।</p>
+      </div>
       {status}
       <Button
         className="h-12 w-full text-base"
         disabled={pending}
-        onClick={() => run(() => saveSettingsAction({ farmName, labourDailyWage: Number(wage), startDate }))}
+        onClick={() => run(() => saveSettingsAction({ farmName, labourDailyWage: Number(wage), startDate, lowFundAlert: Number(lowFund || 0) }))}
       >
         সংরক্ষণ
       </Button>
@@ -240,6 +260,76 @@ export function CategoriesForm({ categories }: { categories: CategoryRow[] }) {
       ) : (
         <Button variant="outline" className="h-11 w-full" onClick={() => setEditing("new")}>
           <Plus className="size-4" /> নতুন খাত
+        </Button>
+      )}
+    </Card>
+  );
+}
+
+type PondRow = { id: number; name: string; archived: boolean };
+
+/** Ponds: add, rename, hide. Optional — the app works the same with none. */
+export function PondsForm({ ponds }: { ponds: PondRow[] }) {
+  const [editing, setEditing] = useState<number | "new" | null>(null);
+  const [name, setName] = useState("");
+  const [archived, setArchived] = useState(false);
+  const { pending, run, status } = useSave();
+  const open = (p: PondRow | null) => {
+    setEditing(p ? p.id : "new");
+    setName(p?.name ?? "");
+    setArchived(p?.archived ?? false);
+  };
+  return (
+    <Card title="পুকুর">
+      <p className="text-xs text-muted-foreground">
+        পুকুর যোগ করলে খরচ, বিক্রি আর খাবার লগে পুকুর বাছাই করা যাবে, রিপোর্টে পুকুরভিত্তিক হিসাব আসবে।
+      </p>
+      <ul className="space-y-1">
+        {ponds.map((p) => (
+          <li key={p.id} className={cn("flex items-center gap-2 py-1", p.archived && "opacity-50")}>
+            <span className="flex-1">
+              {p.name}
+              {p.archived && <span className="ml-2 text-xs">(লুকানো)</span>}
+            </span>
+            <button
+              type="button"
+              aria-label={`${p.name} বদলান`}
+              onClick={() => open(p)}
+              className="flex size-10 items-center justify-center rounded-full active:bg-muted"
+            >
+              <Pencil className="size-4" />
+            </button>
+          </li>
+        ))}
+      </ul>
+      {editing !== null ? (
+        <div className="space-y-2 rounded-lg bg-muted/50 p-3">
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="পুকুরের নাম" className="h-11 bg-background text-base" />
+          {editing !== "new" && (
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} className="size-5" />
+              লুকিয়ে রাখুন
+            </label>
+          )}
+          {status}
+          <div className="flex gap-2">
+            <Button variant="outline" className="h-11 flex-1" onClick={() => setEditing(null)}>
+              বন্ধ
+            </Button>
+            <Button
+              className="h-11 flex-1"
+              disabled={pending || !name.trim()}
+              onClick={() =>
+                run(() => savePondAction(editing === "new" ? null : editing, { name, archived }), () => setEditing(null))
+              }
+            >
+              সংরক্ষণ
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button variant="outline" className="h-11 w-full" onClick={() => open(null)}>
+          <Plus className="size-4" /> নতুন পুকুর
         </Button>
       )}
     </Card>

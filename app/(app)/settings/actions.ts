@@ -3,10 +3,13 @@
 import { db } from "@/lib/db";
 import {
   createCategory,
+  createPond,
   updateCategory,
+  updatePond,
   updatePartners,
   updateSettings,
   type categoryInput,
+  type pondInput,
   type partnersInput,
   type settingsInput,
 } from "@/lib/db/settings-mutations";
@@ -104,6 +107,20 @@ export async function saveAccountAction(id: number, input: z.input<typeof adminI
     dataChanged();
     return { ok: true };
   } catch (err) {
+    return fail(err);
+  }
+}
+
+export async function savePondAction(id: number | null, input: z.input<typeof pondInput>): Promise<SimpleResult> {
+  const me = await requirePartner();
+  try {
+    if (id === null) await createPond(db, me.id, input);
+    else await updatePond(db, me.id, id, input);
+    dataChanged();
+    return { ok: true };
+  } catch (err) {
+    const text = String((err as { message?: string })?.message ?? "");
+    if (text.includes("ponds_name_unique")) return { ok: false, error: "এই নামে পুকুর আগেই আছে।" };
     return fail(err);
   }
 }

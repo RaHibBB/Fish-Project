@@ -19,7 +19,7 @@ function isActive(pathname: string, href: string) {
 }
 
 /** Full-screen forms have their own sticky save bar, so the nav is hidden there. */
-const FORM_ROUTES = [/^\/add$/, /^\/contribute$/, /^\/ledger\/.+\/edit$/];
+const FORM_ROUTES = [/^\/add$/, /^\/contribute$/, /^\/sale$/, /^\/feeding\/new$/, /^\/ledger\/.+\/edit$/];
 
 /** Reads the URL, so it must sit inside <Suspense>; see AppNav. */
 function BottomNav() {

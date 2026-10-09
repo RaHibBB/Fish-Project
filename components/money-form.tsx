@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveMoneyAction, type MoneyInput } from "@/app/(app)/contribute/actions";
+import { isNetworkError, queue } from "@/lib/client/outbox";
 import { ChoiceChips } from "@/components/choice-chips";
 import { DateField } from "@/components/date-field";
 import { Keypad } from "@/components/keypad";
@@ -34,13 +35,39 @@ export function MoneyForm({
   const [note, setNote] = useState(initial?.note ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [clientId] = useState(() => crypto.randomUUID());
   const amount = Number(amountStr || 0);
   const isWithdrawal = kind === "withdrawal";
 
   function save() {
     if (amount <= 0) return setError("টাকার অঙ্ক দিন।");
+    const input: MoneyInput = {
+      id: initial?.id,
+      clientId: editing ? null : clientId,
+      kind,
+      date,
+      partnerId,
+      amount,
+      method,
+      note,
+    };
     startTransition(async () => {
-      const res = await saveMoneyAction({ id: initial?.id, kind, date, partnerId, amount, method, note });
+      let res: Awaited<ReturnType<typeof saveMoneyAction>>;
+      try {
+        res = await saveMoneyAction(input);
+      } catch (err) {
+        if (editing || !isNetworkError(err)) return setError("সংরক্ষণ করা যায়নি, আবার চেষ্টা করুন।");
+        const who = partners.find((p) => p.id === partnerId)?.name ?? "";
+        queue({
+          id: clientId,
+          kind: "money",
+          payload: input,
+          summary: `${who} ${isWithdrawal ? "ফেরত" : "জমা"} ${taka(amount)}`,
+          savedAt: Date.now(),
+        });
+        router.push("/");
+        return;
+      }
       if (!res.ok) return setError(res.error);
       router.push(editing ? "/ledger" : "/?saved=1");
       router.refresh();

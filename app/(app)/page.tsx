@@ -1,12 +1,14 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { CheckCircle2, LogIn, Plus, Settings, Wallet } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Fish, History, Images, LogIn, Plus, Settings, Wallet, Wheat } from "lucide-react";
 import { EntryRow } from "@/components/entry-row";
 import { InstallApp } from "@/components/install-app";
+import { ShareButton } from "@/components/share-button";
 import { buttonVariants } from "@/components/ui/button";
 import { bnDate, monthOf, taka, todayISO } from "@/lib/format";
 import { buildEntries } from "@/lib/ledger";
-import { filterExpenses, fundBalance, partnerPositions, settleUp, totalExpense, type Transfer } from "@/lib/money";
+import { filterExpenses, fundBalance, partnerPositions, settleUp, totalExpense, totalIncome, type Transfer } from "@/lib/money";
+import { buildShareText } from "@/lib/summary";
 import { getCurrentPartner } from "@/lib/server/auth";
 import { getCategories, getLedger, getPartners, getSettings } from "@/lib/server/queries";
 import { cn } from "@/lib/utils";
@@ -33,6 +35,9 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
   const todayTotal = totalExpense(filterExpenses(ledger.expenses, { from: today, to: today }));
   const monthTotal = totalExpense(filterExpenses(ledger.expenses, { from: `${monthOf(today)}-01`, to: today }));
   const allTotal = totalExpense(ledger.expenses);
+  const income = totalIncome(ledger.sales);
+  const lowFund = settings.lowFundAlert > 0 && fund >= 0 && fund < settings.lowFundAlert;
+  const shareText = buildShareText({ farmName: settings.farmName, ledger, partners, today });
   const positions = partnerPositions(ledger, partners);
   const transfers = settleUp(positions);
   const recent = buildEntries(ledger, categories, partners)
@@ -77,6 +82,11 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
         </div>
         <div className="mt-1 text-4xl font-bold tabular-nums">{taka(fund)}</div>
         {fund < 0 && <p className="mt-1 text-sm opacity-90">ফান্ড থেকে বেশি খরচ হয়েছে — টাকা দিতে হবে</p>}
+        {lowFund && (
+          <p className="mt-2 flex items-center gap-1.5 rounded-lg bg-amber-300/90 px-2.5 py-1.5 text-sm font-medium text-amber-950">
+            <AlertTriangle className="size-4" /> ক্যাশ বাক্সে টাকা কম — {taka(settings.lowFundAlert)} এর নিচে
+          </p>
+        )}
         <Link
           href="/contribute"
           className="mt-4 flex h-12 items-center justify-center gap-2 rounded-xl bg-white/95 text-base font-semibold text-gray-900 active:scale-[0.98]"
@@ -85,16 +95,44 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
         </Link>
       </section>
 
+      {/* Farm shortcuts */}
+      <nav className="mx-4 grid grid-cols-4 gap-2 text-center text-xs">
+        {[
+          { href: "/sale", label: "মাছ বিক্রি", icon: Fish },
+          { href: "/feeding", label: "খাবার লগ", icon: Wheat },
+          { href: "/activity", label: "পরিবর্তন", icon: History },
+          { href: "/ledger?type=receipt", label: "রসিদ", icon: Images },
+        ].map(({ href, label, icon: Icon }) => (
+          <Link key={href} href={href} className="flex flex-col items-center gap-1 rounded-xl border py-2.5 active:bg-muted">
+            <Icon className="size-5 text-primary" />
+            {label}
+          </Link>
+        ))}
+      </nav>
+
       {/* Totals */}
       <section className="mx-4 grid grid-cols-3 gap-2 text-center">
         {[
           ["আজকের খরচ", todayTotal],
           ["এই মাসে", monthTotal],
           ["মোট খরচ", allTotal],
+          ...(income > 0
+            ? [
+                ["মোট বিক্রি", income],
+                ["লাভ / ক্ষতি", income - allTotal],
+              ]
+            : []),
         ].map(([label, value]) => (
           <div key={label} className="rounded-xl border p-2.5">
             <div className="text-xs text-muted-foreground">{label}</div>
-            <div className="text-base font-bold tabular-nums">{taka(value as number)}</div>
+            <div
+              className={cn(
+                "text-base font-bold tabular-nums",
+                label === "লাভ / ক্ষতি" && ((value as number) < 0 ? "text-destructive" : "text-primary"),
+              )}
+            >
+              {label === "লাভ / ক্ষতি" ? taka(value as number, { signed: true }) : taka(value as number)}
+            </div>
           </div>
         ))}
       </section>
@@ -118,7 +156,12 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
             </div>
             <div className="mt-1 grid grid-cols-2 gap-x-3 text-sm text-muted-foreground">
               <span>দিয়েছেন: <b className="text-foreground">{taka(p.putIn)}</b></span>
-              <span>ভাগের খরচ: <b className="text-foreground">{taka(p.fairShare)}</b></span>
+              <span>
+                {income > 0 ? "ভাগের খরচ (বিক্রি বাদে)" : "ভাগের খরচ"}: <b className="text-foreground">{taka(p.fairShare)}</b>
+              </span>
+              {p.salesHeld > 0 && (
+                <span className="col-span-2">বিক্রির টাকা হাতে: <b className="text-foreground">{taka(p.salesHeld)}</b></span>
+              )}
             </div>
             <p className="mt-1.5 border-t pt-1.5 text-sm">{settleLine(p.partnerId, transfers)}</p>
           </div>
@@ -126,6 +169,7 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
         <p className="text-xs text-muted-foreground">
           + মানে অন্যরা তাঁকে দেবেন, − মানে তিনি দেবেন। ফান্ডে থাকা টাকা ভাগ অনুযায়ী সবার।
         </p>
+        <ShareButton text={shareText} />
       </section>
 
       {/* Recent */}

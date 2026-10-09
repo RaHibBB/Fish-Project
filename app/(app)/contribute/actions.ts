@@ -14,6 +14,8 @@ import { toUserMessage, type ActionResult } from "@/lib/server/action-errors";
 
 export type MoneyInput = {
   id?: number;
+  /** set by the phone for new entries; makes a re-send safe */
+  clientId?: string | null;
   kind: "contribution" | "withdrawal";
   date: string;
   partnerId: number;

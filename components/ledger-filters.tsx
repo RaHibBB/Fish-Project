@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
+import { DateField } from "@/components/date-field";
 import { Input } from "@/components/ui/input";
 import { bnMonth } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -44,10 +45,12 @@ export function LedgerFilters({
   months,
   categories,
   partners,
+  ponds = [],
 }: {
   months: string[];
   categories: { id: number; name: string }[];
   partners: { id: number; name: string }[];
+  ponds?: { id: number; name: string }[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -55,11 +58,26 @@ export function LedgerFilters({
   const [q, setQ] = useState(params.get("q") ?? "");
   const [, startTransition] = useTransition();
 
-  function set(key: string, value: string) {
+  const [range, setRange] = useState(Boolean(params.get("from") || params.get("to")));
+
+  function setMany(changes: Record<string, string>) {
     const next = new URLSearchParams(params.toString());
-    if (value) next.set(key, value);
-    else next.delete(key);
+    for (const [key, value] of Object.entries(changes)) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
     startTransition(() => router.replace(`${pathname}?${next.toString()}`, { scroll: false }));
+  }
+  const set = (key: string, value: string) => setMany({ [key]: value });
+
+  function pickMonth(v: string) {
+    if (v === "range") {
+      setRange(true);
+      setMany({ month: "" });
+    } else {
+      setRange(false);
+      setMany({ month: v, from: "", to: "" });
+    }
   }
 
   // Debounce the search box.
@@ -95,9 +113,13 @@ export function LedgerFilters({
       <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
         <Select
           label="মাস"
-          value={params.get("month") ?? ""}
-          onChange={(v) => set("month", v)}
-          options={[{ value: "", label: "সব মাস" }, ...months.map((m) => ({ value: m, label: bnMonth(m) }))]}
+          value={range ? "range" : (params.get("month") ?? "")}
+          onChange={pickMonth}
+          options={[
+            { value: "", label: "সব মাস" },
+            ...months.map((m) => ({ value: m, label: bnMonth(m) })),
+            { value: "range", label: "তারিখ থেকে তারিখ…" },
+          ]}
         />
         <Select
           label="ধরন"
@@ -107,8 +129,18 @@ export function LedgerFilters({
             { value: "", label: "সব এন্ট্রি" },
             { value: "expense", label: "শুধু খরচ" },
             { value: "money", label: "জমা/ফেরত" },
+            { value: "sale", label: "মাছ বিক্রি" },
+            { value: "receipt", label: "রসিদের ছবি" },
           ]}
         />
+        {ponds.length > 0 && (
+          <Select
+            label="পুকুর"
+            value={params.get("pond") ?? ""}
+            onChange={(v) => set("pond", v)}
+            options={[{ value: "", label: "সব পুকুর" }, ...ponds.map((p) => ({ value: String(p.id), label: p.name }))]}
+          />
+        )}
         <Select
           label="খাত"
           value={params.get("cat") ?? ""}
@@ -126,6 +158,13 @@ export function LedgerFilters({
           ]}
         />
       </div>
+      {range && (
+        <div className="flex flex-wrap items-center gap-2">
+          <DateField value={params.get("from") ?? ""} onChange={(v) => set("from", v)} quick={false} />
+          <span className="text-sm">থেকে</span>
+          <DateField value={params.get("to") ?? ""} onChange={(v) => set("to", v)} quick={false} min={params.get("from") ?? undefined} />
+        </div>
+      )}
     </div>
   );
 }
