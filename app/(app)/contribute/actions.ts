@@ -1,6 +1,8 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { after } from "next/server";
+import { sendEntryNotification } from "@/lib/server/push";
 import {
   createContribution,
   createWithdrawal,
@@ -33,10 +35,12 @@ export async function saveMoneyAction(input: MoneyInput): Promise<ActionResult> 
       const data = { ...rest, method };
       const row = id ? await updateContribution(db, partner.id, id, data) : await createContribution(db, partner.id, data);
       dataChanged();
+      after(() => sendEntryNotification({ actorId: partner.id, action: id ? "update" : "create", tableName: "contributions", row }));
       return { ok: true, id: row.id };
     }
     const row = id ? await updateWithdrawal(db, partner.id, id, rest) : await createWithdrawal(db, partner.id, rest);
     dataChanged();
+    after(() => sendEntryNotification({ actorId: partner.id, action: id ? "update" : "create", tableName: "withdrawals", row }));
     return { ok: true, id: row.id };
   } catch (err) {
     return { ok: false, error: toUserMessage(err) };

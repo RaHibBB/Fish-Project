@@ -2,8 +2,9 @@ import "server-only";
 import webpush from "web-push";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { expenses, pushSubscriptions } from "@/lib/db/schema";
+import { categories, expenses, partners, ponds, pushSubscriptions } from "@/lib/db/schema";
 import { todayISO } from "@/lib/format";
+import { buildEntryNotification, notificationTargets, type EntryEvent } from "@/lib/notify";
 
 export type BrowserSubscription = { endpoint: string; keys: { p256dh: string; auth: string } };
 
@@ -55,4 +56,45 @@ export async function sendDailyReminder(now = new Date()) {
     }
   }
   return { sent, reason: "no expenses today" };
+}
+
+/**
+ * Tell everyone else's phones that an entry was added / changed / voided ("রাফি যোগ করেছেন: খরচ…").
+ * Called after the save has finished; a notification problem must never affect the save, so
+ * every error is swallowed here.
+ */
+export async function sendEntryNotification(event: EntryEvent) {
+  try {
+    if (!pushConfigured()) return;
+    const subs = notificationTargets(await db.select().from(pushSubscriptions), event.actorId);
+    if (subs.length === 0) return;
+    const [people, cats, pondRows] = await Promise.all([
+      db.select({ id: partners.id, name: partners.name }).from(partners),
+      db.select({ id: categories.id, name: categories.name }).from(categories),
+      db.select({ id: ponds.id, name: ponds.name }).from(ponds),
+    ]);
+    const note = buildEntryNotification(event, {
+      people: new Map(people.map((x) => [x.id, x.name])),
+      categories: new Map(cats.map((x) => [x.id, x.name])),
+      ponds: new Map(pondRows.map((x) => [x.id, x.name])),
+    });
+    webpush.setVapidDetails(
+      process.env.VAPID_SUBJECT ?? "https://fish-project-theta.vercel.app",
+      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+      process.env.VAPID_PRIVATE_KEY!,
+    );
+    const payload = JSON.stringify(note);
+    await Promise.all(
+      subs.map(async (sub) => {
+        try {
+          await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload);
+        } catch (err) {
+          const status = (err as { statusCode?: number }).statusCode;
+          if (status === 404 || status === 410) await removeSubscription(sub.endpoint);
+        }
+      }),
+    );
+  } catch (err) {
+    console.error("entry notification failed", err);
+  }
 }

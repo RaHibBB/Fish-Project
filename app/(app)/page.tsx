@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Fish, History, Images, LogIn, Plus, Settings, Wallet, Wheat } from "lucide-react";
 import { EntryRow } from "@/components/entry-row";
 import { InstallApp } from "@/components/install-app";
+import { NotifyPrompt } from "@/components/reminder-toggle";
 import { ShareButton } from "@/components/share-button";
 import { buttonVariants } from "@/components/ui/button";
 import { bnDate, monthOf, taka, todayISO } from "@/lib/format";
@@ -74,6 +75,7 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
       )}
 
       <InstallApp />
+      {me && <NotifyPrompt />}
 
       {/* Fund balance */}
       <section
@@ -92,12 +94,20 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
             <AlertTriangle className="size-4" /> ক্যাশ বাক্সে টাকা কম — {taka(settings.lowFundAlert)} এর নিচে
           </p>
         )}
-        <Link
-          href="/contribute"
-          className="mt-4 flex h-12 items-center justify-center gap-2 rounded-xl bg-white/95 text-base font-semibold text-gray-900 active:scale-[0.98]"
-        >
-          <Plus className="size-5" /> টাকা দিন
-        </Link>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Link
+            href="/add"
+            className="flex h-14 items-center justify-center gap-2 rounded-xl bg-white text-base font-semibold text-gray-900 active:scale-[0.98]"
+          >
+            <Plus className="size-5" /> খরচ লিখুন
+          </Link>
+          <Link
+            href="/contribute"
+            className="flex h-14 items-center justify-center gap-2 rounded-xl bg-white/20 text-base font-semibold text-white ring-1 ring-white/50 active:scale-[0.98]"
+          >
+            <Plus className="size-5" /> টাকা দিন
+          </Link>
+        </div>
       </section>
 
       {/* Farm shortcuts */}
@@ -142,6 +152,30 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
         ))}
       </section>
 
+      {/* Recent */}
+      <section>
+        <div className="mx-4 mb-1 flex items-center justify-between">
+          <h2 className="font-semibold">সাম্প্রতিক এন্ট্রি</h2>
+          <Link href="/ledger" className="text-sm text-primary">
+            সব দেখুন
+          </Link>
+        </div>
+        {recent.length === 0 ? (
+          <div className="mx-4 rounded-xl border border-dashed p-6 text-center text-muted-foreground">
+            এখনো কোনো এন্ট্রি নেই।
+            <Link href="/add" className={cn(buttonVariants(), "mt-3 h-11 w-full text-base")}>
+              প্রথম খরচ লিখুন
+            </Link>
+          </div>
+        ) : (
+          <div className="divide-y border-y">
+            {recent.map((e) => (
+              <EntryRow key={`${e.kind}-${e.id}`} entry={e} showDate />
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* Profit / loss, shared equally */}
       {(allTotal > 0 || income > 0) && (
         <section className="mx-4 space-y-1.5 rounded-xl border p-3">
@@ -173,7 +207,22 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
 
       {/* Partners */}
       <section className="mx-4 space-y-2">
-        <h2 className="font-semibold">পার্টনারদের হিসাব</h2>
+        <h2 className="font-semibold">কে কাকে টাকা দেবেন</h2>
+        {transfers.length === 0 ? (
+          <p className="rounded-xl border p-3 text-sm">সবার হিসাব সমান — কাউকে কিছু দিতে হবে না।</p>
+        ) : (
+          transfers.map((t) => (
+            <div key={`${t.fromId}-${t.toId}`} className="flex items-center justify-between rounded-xl border p-3">
+              <span className="text-base">
+                <b>{t.fromName}</b> → <b>{t.toName}</b>
+              </span>
+              <b className="text-lg tabular-nums">{taka(t.amount)}</b>
+            </div>
+          ))
+        )}
+        <details className="rounded-xl border p-3">
+          <summary className="cursor-pointer font-medium">প্রত্যেকের বিস্তারিত হিসাব</summary>
+          <div className="mt-3 space-y-2">
         {income === 0 && (
           <div className="rounded-xl bg-muted/60 p-3 text-sm">
             <div className="mb-1 font-medium">টাকার হিসাব এক নজরে</div>
@@ -227,32 +276,11 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
         <p className="text-xs text-muted-foreground">
           + মানে অন্যরা তাঁকে দেবেন, − মানে তিনি দেবেন। ফান্ডে থাকা টাকা ভাগ অনুযায়ী সবার।
         </p>
+          </div>
+        </details>
         <ShareButton text={shareText} />
       </section>
 
-      {/* Recent */}
-      <section>
-        <div className="mx-4 mb-1 flex items-center justify-between">
-          <h2 className="font-semibold">সাম্প্রতিক এন্ট্রি</h2>
-          <Link href="/ledger" className="text-sm text-primary">
-            সব দেখুন
-          </Link>
-        </div>
-        {recent.length === 0 ? (
-          <div className="mx-4 rounded-xl border border-dashed p-6 text-center text-muted-foreground">
-            এখনো কোনো এন্ট্রি নেই।
-            <Link href="/add" className={cn(buttonVariants(), "mt-3 h-11 w-full text-base")}>
-              প্রথম খরচ লিখুন
-            </Link>
-          </div>
-        ) : (
-          <div className="divide-y border-y">
-            {recent.map((e) => (
-              <EntryRow key={`${e.kind}-${e.id}`} entry={e} showDate />
-            ))}
-          </div>
-        )}
-      </section>
     </div>
   );
 }

@@ -1,6 +1,8 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { after } from "next/server";
+import { sendEntryNotification } from "@/lib/server/push";
 import { createSale, updateSale } from "@/lib/db/mutations";
 import { requirePartner } from "@/lib/server/auth";
 import { dataChanged } from "@/lib/server/cache";
@@ -26,6 +28,7 @@ export async function saveSaleAction(input: SaleFormInput): Promise<ActionResult
     const { id, ...data } = input;
     const row = id ? await updateSale(db, me.id, id, data) : await createSale(db, me.id, data);
     dataChanged();
+    after(() => sendEntryNotification({ actorId: me.id, action: id ? "update" : "create", tableName: "sales", row }));
     return { ok: true, id: row.id };
   } catch (err) {
     return { ok: false, error: toUserMessage(err) };

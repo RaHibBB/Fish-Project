@@ -1,6 +1,8 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { after } from "next/server";
+import { sendEntryNotification } from "@/lib/server/push";
 import { createExpense, updateExpense, type ExpenseInput } from "@/lib/db/mutations";
 import { requirePartner } from "@/lib/server/auth";
 import { dataChanged } from "@/lib/server/cache";
@@ -50,6 +52,7 @@ export async function saveExpenseAction(form: FormData): Promise<ActionResult> {
     };
     const row = id === null ? await createExpense(db, partner.id, input) : await updateExpense(db, partner.id, id, input);
     dataChanged();
+    after(() => sendEntryNotification({ actorId: partner.id, action: id === null ? "create" : "update", tableName: "expenses", row }));
     return { ok: true, id: row.id };
   } catch (err) {
     return { ok: false, error: toUserMessage(err) };
