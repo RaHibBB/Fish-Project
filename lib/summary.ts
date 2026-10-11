@@ -26,16 +26,21 @@ export function buildShareText(opts: {
   const positions = partnerPositions(ledger, partners);
   const transfers = settleUp(positions);
 
+  const total = totalExpense(ledger.expenses);
   const lines = [
     `*${opts.farmName} — হিসাব (${bnDate(today)})*`,
     "",
     `ক্যাশ বাক্স: ${taka(fund)}${fund < 0 ? " ⚠️" : ""}`,
-    `${bnMonth(month)} এর খরচ: ${taka(monthExpense)}`,
-    `মোট খরচ: ${taka(totalExpense(ledger.expenses))}`,
+    `মোট খরচ (এ পর্যন্ত): ${taka(total)}`,
   ];
+  // Only show the month line when it adds information (not when everything was spent this month).
+  if (monthExpense !== total) lines.push(`${bnMonth(month)} এর খরচ: ${taka(monthExpense)}`);
   if (income > 0) {
-    lines.push(`মোট বিক্রি: ${taka(income)}`, `লাভ/ক্ষতি: ${taka(income - totalExpense(ledger.expenses), { signed: true })}`);
+    lines.push(`মোট বিক্রি: ${taka(income)}`, `লাভ/ক্ষতি: ${taka(income - total, { signed: true })}`);
   }
+  lines.push("", "*কে কত টাকা দিয়েছেন*");
+  for (const p of positions) lines.push(`${p.name}: ${taka(p.putIn)}`);
+  lines.push(`মোট দিয়েছেন: ${taka(positions.reduce((a, p) => a + p.putIn, 0))}`);
   lines.push("", "*পার্টনারদের অবস্থান*");
   for (const p of positions) lines.push(`${p.name}: ${taka(p.net, { signed: true })}`);
   lines.push("", "*কে কাকে দেবেন*");

@@ -19,7 +19,12 @@ describe("share text", () => {
       url: "https://example.app",
     });
     expect(text).toContain("ক্যাশ বাক্স: ৳৬,০০০");
-    expect(text).toContain("অক্টোবর ২০২৬ এর খরচ: ৳৪,০০০");
+    expect(text).toContain("মোট খরচ (এ পর্যন্ত): ৳৪,০০০");
+    expect(text).not.toContain("অক্টোবর ২০২৬ এর খরচ"); // all spending is this month: no extra line
+    expect(text).toContain("*কে কত টাকা দিয়েছেন*");
+    expect(text).toContain("রাফি: ৳১০,০০০");
+    expect(text).toContain("অভি: ৳০");
+    expect(text).toContain("মোট দিয়েছেন: ৳১০,০০০");
     expect(text).toContain("অভি → রাফি ৳৫,০০০");
     expect(text).not.toContain("বিক্রি");
     expect(text.endsWith("https://example.app")).toBe(true);
