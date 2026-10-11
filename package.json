@@ -15,7 +15,8 @@
     "reset-pin": "tsx scripts/reset-pin.ts",
     "import:apply": "tsx scripts/import-apply.ts",
     "accounts:apply": "tsx scripts/accounts-apply.ts",
-    "contributions:apply": "tsx scripts/contributions-apply.ts"
+    "contributions:apply": "tsx scripts/contributions-apply.ts",
+    "expenses:apply": "tsx scripts/expenses-apply.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
