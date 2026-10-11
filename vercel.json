@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm db:setup && pnpm import:apply && pnpm accounts:apply && pnpm contributions:apply && pnpm expenses:apply && pnpm build",
+  "buildCommand": "pnpm db:setup && pnpm import:apply && pnpm accounts:apply && pnpm contributions:apply && pnpm expenses:apply && pnpm ledger:reset && pnpm build",
   "regions": [
     "sin1"
   ],

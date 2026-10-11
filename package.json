@@ -16,7 +16,8 @@
     "import:apply": "tsx scripts/import-apply.ts",
     "accounts:apply": "tsx scripts/accounts-apply.ts",
     "contributions:apply": "tsx scripts/contributions-apply.ts",
-    "expenses:apply": "tsx scripts/expenses-apply.ts"
+    "expenses:apply": "tsx scripts/expenses-apply.ts",
+    "ledger:reset": "tsx scripts/ledger-reset-apply.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
