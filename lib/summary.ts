@@ -1,6 +1,7 @@
 // Plain-text summary for sharing on WhatsApp (or any app) — no paid API involved.
 import { bnDate, bnMonth, monthOf, taka } from "./format";
 import {
+  allocate,
   filterExpenses,
   fundBalance,
   partnerPositions,
@@ -37,6 +38,9 @@ export function buildShareText(opts: {
   if (monthExpense !== total) lines.push(`${bnMonth(month)} এর খরচ: ${taka(monthExpense)}`);
   if (income > 0) {
     lines.push(`মোট বিক্রি: ${taka(income)}`, `লাভ/ক্ষতি: ${taka(income - total, { signed: true })}`);
+    lines.push("", "*সবার সমান ভাগে লাভ/ক্ষতি*");
+    const share = allocate(income - total, partners);
+    for (const p of partners) lines.push(`${p.name}: ${taka(share.get(p.id) ?? 0, { signed: true })}`);
   }
   lines.push("", "*কে কত টাকা দিয়েছেন*");
   for (const p of positions) lines.push(`${p.name}: ${taka(p.putIn)}`);

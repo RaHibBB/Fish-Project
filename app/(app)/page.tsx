@@ -8,7 +8,7 @@ import { ShareButton } from "@/components/share-button";
 import { buttonVariants } from "@/components/ui/button";
 import { bnDate, monthOf, taka, todayISO } from "@/lib/format";
 import { buildEntries } from "@/lib/ledger";
-import { filterExpenses, fundBalance, partnerPositions, settleUp, totalExpense, totalIncome, type Transfer } from "@/lib/money";
+import { allocate, filterExpenses, fundBalance, partnerPositions, settleUp, totalExpense, totalIncome, type Transfer } from "@/lib/money";
 import { buildShareText } from "@/lib/summary";
 import { getCurrentPartner } from "@/lib/server/auth";
 import { getCategories, getLedger, getPartners, getSettings } from "@/lib/server/queries";
@@ -42,6 +42,8 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
   const shareText = buildShareText({ farmName: settings.farmName, ledger, partners, today });
   const positions = partnerPositions(ledger, partners);
   const totalPutIn = positions.reduce((a, p) => a + p.putIn, 0);
+  const profit = income - allTotal;
+  const profitShare = allocate(profit, partners);
   const transfers = settleUp(positions);
   const recent = buildEntries(ledger, categories, partners)
     .sort((a, b) => b.createdAt - a.createdAt || b.id - a.id)
@@ -139,6 +141,35 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
           </div>
         ))}
       </section>
+
+      {/* Profit / loss, shared equally */}
+      {(allTotal > 0 || income > 0) && (
+        <section className="mx-4 space-y-1.5 rounded-xl border p-3">
+          <h2 className="font-semibold">{profit >= 0 ? "লাভ" : "ক্ষতি"} — সবার সমান ভাগ</h2>
+          <div className="flex justify-between text-sm">
+            <span>মোট মাছ বিক্রি</span>
+            <b className="tabular-nums">{taka(income)}</b>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span>− মোট খরচ</span>
+            <b className="tabular-nums">{taka(allTotal)}</b>
+          </div>
+          <div className="flex justify-between border-t pt-1.5">
+            <span>= {profit >= 0 ? "মোট লাভ" : "মোট ক্ষতি (এখনো বিক্রি হয়নি)"}</span>
+            <b className={cn("tabular-nums", profit < 0 ? "text-destructive" : "text-primary")}>{taka(profit, { signed: true })}</b>
+          </div>
+          <div className="space-y-1 pt-1">
+            {partners.map((p) => (
+              <div key={p.id} className="flex justify-between rounded-lg bg-muted/60 px-2.5 py-1.5">
+                <span className="font-medium">{p.name} {profit >= 0 ? "পাবেন" : "এর ভাগ"}</span>
+                <b className={cn("tabular-nums", (profitShare.get(p.id) ?? 0) < 0 ? "text-destructive" : "text-primary")}>
+                  {taka(profitShare.get(p.id) ?? 0, { signed: true })}
+                </b>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Partners */}
       <section className="mx-4 space-y-2">

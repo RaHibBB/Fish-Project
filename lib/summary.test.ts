@@ -44,5 +44,7 @@ describe("share text", () => {
     });
     expect(text).toContain("মোট বিক্রি: ৳১০,০০০");
     expect(text).toContain("লাভ/ক্ষতি: +৳৬,০০০");
+    expect(text).toContain("*সবার সমান ভাগে লাভ/ক্ষতি*");
+    expect(text).toContain("রাফি: +৳৬,০০০");
   });
 });

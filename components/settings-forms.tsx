@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Check, Pencil, Plus } from "lucide-react";
 import {
   saveCategoryAction,
-  savePartnersAction,
   savePondAction,
   saveSettingsAction,
   type SimpleResult,
@@ -15,7 +14,6 @@ import { DateField } from "@/components/date-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toBnDigits } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 function useSave() {
@@ -102,63 +100,6 @@ export function FarmSettingsForm({
         className="h-12 w-full text-base"
         disabled={pending}
         onClick={() => run(() => saveSettingsAction({ farmName, labourDailyWage: Number(wage), startDate, lowFundAlert: Number(lowFund || 0) }))}
-      >
-        সংরক্ষণ
-      </Button>
-    </Card>
-  );
-}
-
-type PartnerRow = { id: number; name: string; phone: string; shareBp: number };
-
-export function PartnersForm({ initial }: { initial: PartnerRow[] }) {
-  const [rows, setRows] = useState(initial.map((p) => ({ ...p, share: (p.shareBp / 100).toFixed(2) })));
-  const { pending, run, status } = useSave();
-  const totalBp = rows.reduce((a, r) => a + Math.round(Number(r.share || 0) * 100), 0);
-  const update = (i: number, patch: Partial<(typeof rows)[number]>) =>
-    setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
-
-  return (
-    <Card title="পার্টনার ও ভাগ">
-      {rows.map((r, i) => (
-        <div key={r.id} className="grid grid-cols-[1fr_5.5rem] gap-2 border-b pb-3 last:border-0">
-          <Input aria-label="নাম" value={r.name} onChange={(e) => update(i, { name: e.target.value })} className="h-11 text-base" />
-          <div className="relative">
-            <Input
-              aria-label={`${r.name} এর ভাগ (%)`}
-              type="number"
-              inputMode="decimal"
-              step="0.01"
-              value={r.share}
-              onChange={(e) => update(i, { share: e.target.value })}
-              className="h-11 pr-6 text-base"
-            />
-            <span className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground">%</span>
-          </div>
-          <Input
-            aria-label={`${r.name} এর ফোন`}
-            type="tel"
-            inputMode="tel"
-            value={r.phone}
-            onChange={(e) => update(i, { phone: e.target.value })}
-            className="col-span-2 h-11 text-base"
-          />
-        </div>
-      ))}
-      <p className={cn("text-sm", totalBp === 10000 ? "text-muted-foreground" : "text-destructive")}>
-        মোট ভাগ: {toBnDigits((totalBp / 100).toFixed(2))}% {totalBp !== 10000 && "(১০০% হতে হবে)"}
-      </p>
-      {status}
-      <Button
-        className="h-12 w-full text-base"
-        disabled={pending || totalBp !== 10000}
-        onClick={() =>
-          run(() =>
-            savePartnersAction(
-              rows.map((r) => ({ id: r.id, name: r.name, phone: r.phone, shareBp: Math.round(Number(r.share) * 100) })),
-            ),
-          )
-        }
       >
         সংরক্ষণ
       </Button>

@@ -6,11 +6,9 @@ import {
   createPond,
   updateCategory,
   updatePond,
-  updatePartners,
   updateSettings,
   type categoryInput,
   type pondInput,
-  type partnersInput,
   type settingsInput,
 } from "@/lib/db/settings-mutations";
 import { createAdmin, resetPinFor, updateAccount, type adminInput } from "@/lib/db/account-mutations";
@@ -42,17 +40,6 @@ export async function saveSettingsAction(input: z.input<typeof settingsInput>): 
   const me = await requirePartner();
   try {
     await updateSettings(db, me.id, input);
-    dataChanged();
-    return { ok: true };
-  } catch (err) {
-    return fail(err);
-  }
-}
-
-export async function savePartnersAction(input: z.input<typeof partnersInput>): Promise<SimpleResult> {
-  const me = await requirePartner();
-  try {
-    await updatePartners(db, me.id, input);
     dataChanged();
     return { ok: true };
   } catch (err) {

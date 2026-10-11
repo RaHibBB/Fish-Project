@@ -1,38 +1,29 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { asc, eq } from "drizzle-orm";
 import { KeyRound, LogOut } from "lucide-react";
 import { logoutAction } from "@/app/login/actions";
 import { PageHeader } from "@/components/page-header";
 import { AccountsForm } from "@/components/accounts-form";
 import { ReminderToggle } from "@/components/reminder-toggle";
-import { CategoriesForm, FarmSettingsForm, PartnersForm, PondsForm } from "@/components/settings-forms";
+import { CategoriesForm, FarmSettingsForm, PondsForm } from "@/components/settings-forms";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { db } from "@/lib/db";
-import { partners } from "@/lib/db/schema";
 import { requirePartner } from "@/lib/server/auth";
 import { getCategories, getPeople, getPonds, getSettings } from "@/lib/server/queries";
 import { cn } from "@/lib/utils";
 
 async function SettingsContent() {
   const me = await requirePartner();
-  const [settings, categories, people, ponds, partnerRows] = await Promise.all([
+  const [settings, categories, people, ponds] = await Promise.all([
     getSettings(),
     getCategories(),
     getPeople(),
     getPonds(),
-    db
-      .select({ id: partners.id, name: partners.name, phone: partners.phone, shareBp: partners.shareBp })
-      .from(partners)
-      .where(eq(partners.isPartner, true))
-      .orderBy(asc(partners.sortOrder), asc(partners.id)),
   ]);
   return (
     <div className="space-y-4 p-4">
       <p className="text-sm text-muted-foreground">আপনি ঢুকেছেন: {me.name}</p>
       <ReminderToggle />
       <FarmSettingsForm initial={settings} />
-      <PartnersForm initial={partnerRows} />
       <AccountsForm people={people} meId={me.id} />
       <CategoriesForm categories={categories} />
       <PondsForm ponds={ponds} />
