@@ -43,6 +43,17 @@ describe("applyExpenseSetup", () => {
     expect(await db.$count(expenses, eq(expenses.clientId, "setup-test-0001"))).toBe(1);
   });
 
+  it("corrects the amount of an existing entry only when asked, and logs before/after", async () => {
+    const same = await applyExpenseSetup(db, [{ ...item, amount: 85000 }]);
+    expect(same[0].action).toBe("exists"); // no update flag → untouched
+    const res = await applyExpenseSetup(db, [{ ...item, amount: 85000, update: true }]);
+    expect(res[0].action).toBe("updated");
+    const [row] = await db.select().from(expenses).where(eq(expenses.clientId, "setup-test-0001"));
+    expect(row.amount).toBe(85000);
+    const again = await applyExpenseSetup(db, [{ ...item, amount: 85000, update: true }]);
+    expect(again[0].action).toBe("exists");
+  });
+
   it("rejects an unknown category or partner", async () => {
     await expect(applyExpenseSetup(db, [{ ...item, clientId: "setup-test-0002", categorySlug: "nope" }])).rejects.toThrow();
     await expect(applyExpenseSetup(db, [{ ...item, clientId: "setup-test-0003", paidBy: "কেউনা" }])).rejects.toThrow();
