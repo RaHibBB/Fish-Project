@@ -41,6 +41,7 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
   const lowFund = settings.lowFundAlert > 0 && fund >= 0 && fund < settings.lowFundAlert;
   const shareText = buildShareText({ farmName: settings.farmName, ledger, partners, today });
   const positions = partnerPositions(ledger, partners);
+  const totalPutIn = positions.reduce((a, p) => a + p.putIn, 0);
   const transfers = settleUp(positions);
   const recent = buildEntries(ledger, categories, partners)
     .sort((a, b) => b.createdAt - a.createdAt || b.id - a.id)
@@ -142,6 +143,23 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
       {/* Partners */}
       <section className="mx-4 space-y-2">
         <h2 className="font-semibold">পার্টনারদের হিসাব</h2>
+        {income === 0 && (
+          <div className="rounded-xl bg-muted/60 p-3 text-sm">
+            <div className="mb-1 font-medium">টাকার হিসাব এক নজরে</div>
+            <div className="flex justify-between">
+              <span>তিনজন মিলে মোট দিয়েছেন</span>
+              <b className="tabular-nums">{taka(totalPutIn)}</b>
+            </div>
+            <div className="flex justify-between">
+              <span>− মোট খরচ হয়েছে</span>
+              <b className="tabular-nums">{taka(allTotal)}</b>
+            </div>
+            <div className="mt-1 flex justify-between border-t pt-1 text-base">
+              <span>= এখন হাতে বাকি</span>
+              <b className={cn("tabular-nums", fund < 0 && "text-destructive")}>{taka(totalPutIn - allTotal)}</b>
+            </div>
+          </div>
+        )}
         {positions.map((p) => (
           <div key={p.partnerId} className="rounded-xl border p-3">
             <div className="flex items-baseline justify-between">
@@ -157,10 +175,17 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
               </span>
             </div>
             <div className="mt-1 grid grid-cols-2 gap-x-3 text-sm text-muted-foreground">
-              <span>দিয়েছেন: <b className="text-foreground">{taka(p.putIn)}</b></span>
+              <span>মোট দিয়েছেন: <b className="text-foreground">{taka(p.putIn)}</b></span>
               <span>
                 {income > 0 ? "ভাগের খরচ (বিক্রি বাদে)" : "ভাগের খরচ"}: <b className="text-foreground">{taka(p.fairShare)}</b>
               </span>
+              {(p.paidPersonally > 0 || p.withdrawn > 0) && (
+                <span className="col-span-2 text-xs">
+                  = ফান্ডে জমা {taka(p.contributed)}
+                  {p.paidPersonally > 0 && ` + নিজে খরচ করেছেন ${taka(p.paidPersonally)}`}
+                  {p.withdrawn > 0 && ` − ফেরত নিয়েছেন ${taka(p.withdrawn)}`}
+                </span>
+              )}
               {p.salesHeld > 0 && (
                 <span className="col-span-2">বিক্রির টাকা হাতে: <b className="text-foreground">{taka(p.salesHeld)}</b></span>
               )}
