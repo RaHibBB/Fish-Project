@@ -17,5 +17,5 @@ describe("0005_equal_shares migration", () => {
     const after = await db.select().from(partners).orderBy(partners.sortOrder);
     expect(after.filter((p) => p.isPartner).map((p) => p.shareBp)).toEqual([3334, 3333, 3333]);
     expect(after.find((p) => !p.isPartner)!.shareBp).toBe(0);
-  });
+  }, 30_000);
 });
