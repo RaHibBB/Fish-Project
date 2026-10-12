@@ -2,12 +2,13 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Fish, History, Images, LogIn, Plus, Settings, Wallet, Wheat } from "lucide-react";
+import { CopyButton } from "@/components/copy-button";
 import { EntryRow } from "@/components/entry-row";
 import { InstallApp } from "@/components/install-app";
 import { NotifyPrompt } from "@/components/reminder-toggle";
 import { ShareButton } from "@/components/share-button";
 import { buttonVariants } from "@/components/ui/button";
-import { bnDate, monthOf, taka, todayISO } from "@/lib/format";
+import { bnDate, monthOf, taka, toBnDigits, todayISO } from "@/lib/format";
 import { buildEntries } from "@/lib/ledger";
 import { allocate, filterExpenses, fundBalance, partnerPositions, settleUp, totalExpense, totalIncome, type Transfer } from "@/lib/money";
 import { buildShareText } from "@/lib/summary";
@@ -152,6 +153,24 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
         ))}
       </section>
 
+      {/* Who put in how much, and each one's share */}
+      <section className="mx-4 space-y-1.5 rounded-xl border p-3">
+        <h2 className="font-semibold">কে কত টাকা দিয়েছেন</h2>
+        {positions.map((p) => (
+          <div key={p.partnerId} className="flex items-center justify-between rounded-lg bg-muted/60 px-2.5 py-2">
+            <span>
+              <span className="font-medium">{p.name}</span>
+              <span className="ml-1.5 text-xs text-muted-foreground">ভাগ {toBnDigits(String(p.shareBp / 100))}%</span>
+            </span>
+            <b className="text-base tabular-nums">{taka(p.putIn)}</b>
+          </div>
+        ))}
+        <div className="flex justify-between border-t pt-1.5">
+          <span>মোট দিয়েছেন</span>
+          <b className="tabular-nums">{taka(totalPutIn)}</b>
+        </div>
+      </section>
+
       {/* Recent */}
       <section>
         <div className="mx-4 mb-1 flex items-center justify-between">
@@ -278,7 +297,10 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
         </p>
           </div>
         </details>
-        <ShareButton text={shareText} />
+        <div className="grid grid-cols-2 gap-2">
+          <CopyButton text={shareText} />
+          <ShareButton text={shareText} label="WhatsApp" />
+        </div>
       </section>
 
     </div>
