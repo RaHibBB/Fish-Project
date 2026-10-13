@@ -10,7 +10,6 @@ import {
   type SimpleResult,
 } from "@/app/(app)/settings/actions";
 import { CATEGORY_ICONS, CategoryIcon } from "@/components/category-icon";
-import { DateField } from "@/components/date-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,9 +54,6 @@ export function FarmSettingsForm({
   initial: { farmName: string; labourDailyWage: number; startDate: string | null; lowFundAlert: number };
 }) {
   const [farmName, setFarmName] = useState(initial.farmName);
-  const [wage, setWage] = useState(String(initial.labourDailyWage));
-  const [startDate, setStartDate] = useState(initial.startDate ?? "");
-  const [lowFund, setLowFund] = useState(String(initial.lowFundAlert));
   const { pending, run, status } = useSave();
   return (
     <Card title="খামার">
@@ -65,41 +61,16 @@ export function FarmSettingsForm({
         <Label htmlFor="farmName">খামারের নাম</Label>
         <Input id="farmName" value={farmName} onChange={(e) => setFarmName(e.target.value)} className="h-12 text-base" />
       </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="wage">শ্রমিকের দৈনিক মজুরি (৳)</Label>
-        <Input
-          id="wage"
-          type="number"
-          inputMode="numeric"
-          min={1}
-          value={wage}
-          onChange={(e) => setWage(e.target.value)}
-          className="h-12 text-base"
-        />
-        <p className="text-xs text-muted-foreground">নতুন এন্ট্রিতে লাগবে; পুরনো এন্ট্রি বদলাবে না।</p>
-      </div>
-      <div className="space-y-1.5">
-        <Label>শুরুর তারিখ</Label>
-        <DateField value={startDate} onChange={setStartDate} quick={false} />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="lowFund">ক্যাশ বাক্স কম হলে সতর্কতা (৳)</Label>
-        <Input
-          id="lowFund"
-          type="number"
-          inputMode="numeric"
-          min={0}
-          value={lowFund}
-          onChange={(e) => setLowFund(e.target.value)}
-          className="h-12 text-base"
-        />
-        <p className="text-xs text-muted-foreground">এর নিচে নামলে হোমে হলুদ সতর্কতা দেখাবে। ০ দিলে বন্ধ।</p>
-      </div>
       {status}
       <Button
         className="h-12 w-full text-base"
         disabled={pending}
-        onClick={() => run(() => saveSettingsAction({ farmName, labourDailyWage: Number(wage), startDate, lowFundAlert: Number(lowFund || 0) }))}
+        onClick={() => run(() => saveSettingsAction({
+              farmName,
+              labourDailyWage: initial.labourDailyWage,
+              startDate: initial.startDate ?? "",
+              lowFundAlert: initial.lowFundAlert,
+            }))}
       >
         সংরক্ষণ
       </Button>

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import Link from "next/link";
-import { AlertTriangle, CheckCircle2, Fish, History, Images, LogIn, Plus, Settings, Wallet, Wheat } from "lucide-react";
+import { CheckCircle2, Fish, History, Images, LogIn, Plus, Settings, Wallet, Wheat } from "lucide-react";
 import { CopyButton } from "@/components/copy-button";
 import { EntryRow } from "@/components/entry-row";
 import { InstallApp } from "@/components/install-app";
@@ -40,7 +40,6 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
   const monthTotal = totalExpense(filterExpenses(ledger.expenses, { from: `${monthOf(today)}-01`, to: today }));
   const allTotal = totalExpense(ledger.expenses);
   const income = totalIncome(ledger.sales);
-  const lowFund = settings.lowFundAlert > 0 && fund >= 0 && fund < settings.lowFundAlert;
   const shareText = buildShareText({ farmName: settings.farmName, ledger, partners, today });
   const positions = partnerPositions(ledger, partners);
   const totalPutIn = positions.reduce((a, p) => a + p.putIn, 0);
@@ -90,11 +89,6 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
         </div>
         <div className="mt-1 text-4xl font-bold tabular-nums">{taka(fund)}</div>
         {fund < 0 && <p className="mt-1 text-sm opacity-90">ফান্ড থেকে বেশি খরচ হয়েছে — টাকা দিতে হবে</p>}
-        {lowFund && (
-          <p className="mt-2 flex items-center gap-1.5 rounded-lg bg-amber-300/90 px-2.5 py-1.5 text-sm font-medium text-amber-950">
-            <AlertTriangle className="size-4" /> ক্যাশ বাক্সে টাকা কম — {taka(settings.lowFundAlert)} এর নিচে
-          </p>
-        )}
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Link
             href="/add"
