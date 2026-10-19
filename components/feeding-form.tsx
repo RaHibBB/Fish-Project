@@ -27,7 +27,6 @@ export function FeedingForm({ ponds, feedTypes }: { ponds: PondOption[]; feedTyp
       const res = await saveFeedingAction({ date, pondId, feedKg: Number(kg), feedType, note });
       if (!res.ok) return setError(res.error);
       router.push("/feeding");
-      router.refresh();
     });
   }
 

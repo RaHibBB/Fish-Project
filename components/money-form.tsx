@@ -70,7 +70,6 @@ export function MoneyForm({
       }
       if (!res.ok) return setError(res.error);
       router.push(editing ? "/ledger" : "/?saved=1");
-      router.refresh();
     });
   }
 

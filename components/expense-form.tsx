@@ -186,7 +186,6 @@ export function ExpenseForm({
         router.refresh();
       } else {
         router.push(editing ? `/ledger?saved=${res.id}` : "/?saved=1");
-        router.refresh();
       }
     });
   }

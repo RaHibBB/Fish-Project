@@ -60,7 +60,6 @@ export function SaleForm({
         const res = await saveSaleAction(input);
         if (!res.ok) return setError(res.error);
         router.push(editing ? "/ledger?type=sale" : "/?saved=1");
-        router.refresh();
       } catch (err) {
         if (editing || !isNetworkError(err)) return setError("সংরক্ষণ করা যায়নি, আবার চেষ্টা করুন।");
         queue({ id: clientId, kind: "sale", payload: input, summary: `মাছ বিক্রি ${taka(amount)}`, savedAt: Date.now() });
