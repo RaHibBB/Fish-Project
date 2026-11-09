@@ -11,6 +11,9 @@ export type ExpenseLike = Voidable & {
   /** null = paid from the fund */
   paidByPartnerId: number | null;
   labourCount?: number | null;
+  /** bought on credit (বাকি): counts as cost now, cash leaves the fund only when paid */
+  onCredit?: boolean;
+  shop?: string;
 };
 
 export type ContributionLike = Voidable & { date: string; partnerId: number; amount: number };
@@ -18,12 +21,17 @@ export type WithdrawalLike = Voidable & { date: string; partnerId: number; amoun
 /** Fish sold. receivedByPartnerId null = paid into the fund. */
 export type SaleLike = Voidable & { date: string; amount: number; receivedByPartnerId: number | null };
 
+/** Money paid towards a shop's credit. paidByPartnerId null = from the fund. */
+export type DuePaymentLike = Voidable & { date: string; amount: number; paidByPartnerId: number | null; shop?: string };
+
 export type Ledger = {
   expenses: ExpenseLike[];
   contributions: ContributionLike[];
   withdrawals: WithdrawalLike[];
   /** optional so older callers/tests without sales keep working */
   sales?: SaleLike[];
+  /** optional so older callers/tests without credit keep working */
+  duePayments?: DuePaymentLike[];
 };
 
 export const TOTAL_BP = 10000;
@@ -40,7 +48,7 @@ function sum<T>(rows: T[], pick: (r: T) => number) {
   return rows.reduce((acc, r) => acc + pick(r), 0);
 }
 
-/** ক্যাশ বাক্স = Σ contributions + Σ sales paid into the fund − Σ fund expenses − Σ withdrawals. */
+/** ক্যাশ বাক্স = Σ contributions + Σ sales paid into the fund − Σ fund expenses (not on credit) − Σ fund-paid dues − Σ withdrawals. */
 export function fundBalance(ledger: Ledger): number {
   return (
     sum(active(ledger.contributions), (c) => c.amount) +
@@ -49,10 +57,24 @@ export function fundBalance(ledger: Ledger): number {
       (s) => s.amount,
     ) -
     sum(
-      active(ledger.expenses).filter((e) => e.paidByPartnerId === null),
+      active(ledger.expenses).filter((e) => e.paidByPartnerId === null && !e.onCredit),
       (e) => e.amount,
     ) -
+    sum(
+      active(ledger.duePayments ?? []).filter((d) => d.paidByPartnerId === null),
+      (d) => d.amount,
+    ) -
     sum(active(ledger.withdrawals), (w) => w.amount)
+  );
+}
+
+/** Still owed to shops: Σ credit purchases − Σ due payments (any payer). */
+export function outstandingDue(ledger: Ledger): number {
+  return (
+    sum(
+      active(ledger.expenses).filter((e) => e.onCredit),
+      (e) => e.amount,
+    ) - sum(active(ledger.duePayments ?? []), (d) => d.amount)
   );
 }
 
@@ -97,13 +119,15 @@ export type PartnerPosition = {
   contributed: number;
   paidPersonally: number;
   withdrawn: number;
+  /** shop credit this partner paid off from their own pocket */
+  paidDues: number;
   /** sale money this partner received and is holding for the farm */
   salesHeld: number;
-  /** দিয়েছেন = contributions + personal payments − withdrawals − sale money held */
+  /** দিয়েছেন = contributions + personal payments + dues paid personally − withdrawals − sale money held */
   putIn: number;
   /** ভাগের খরচ = (total expense − total income) × share */
   fairShare: number;
-  /** this partner's slice of the current fund balance */
+  /** this partner's slice of the fund balance after what is still owed to shops */
   fundShare: number;
   /** অবস্থান: positive = others owe them, negative = they owe */
   net: number;
@@ -114,8 +138,13 @@ export function partnerPositions(ledger: Ledger, partners: PartnerInfo[]): Partn
   const contributions = active(ledger.contributions);
   const withdrawals = active(ledger.withdrawals);
   const sales = active(ledger.sales ?? []);
+  const duePayments = active(ledger.duePayments ?? []);
   const fair = allocate(totalExpense(expenses) - totalIncome(sales), partners);
-  const fund = allocate(fundBalance({ expenses, contributions, withdrawals, sales }), partners);
+  // Cash in the box minus what is still owed to shops: unpaid credit is a debt the partners share.
+  const fund = allocate(
+    fundBalance({ expenses, contributions, withdrawals, sales, duePayments }) - outstandingDue({ expenses, contributions, withdrawals, duePayments }),
+    partners,
+  );
 
   return partners.map((p) => {
     const contributed = sum(
@@ -130,11 +159,15 @@ export function partnerPositions(ledger: Ledger, partners: PartnerInfo[]): Partn
       withdrawals.filter((w) => w.partnerId === p.id),
       (w) => w.amount,
     );
+    const paidDues = sum(
+      duePayments.filter((d) => d.paidByPartnerId === p.id),
+      (d) => d.amount,
+    );
     const salesHeld = sum(
       sales.filter((s) => s.receivedByPartnerId === p.id),
       (s) => s.amount,
     );
-    const putIn = contributed + paidPersonally - withdrawn - salesHeld;
+    const putIn = contributed + paidPersonally + paidDues - withdrawn - salesHeld;
     const fairShare = fair.get(p.id)!;
     const fundShare = fund.get(p.id)!;
     return {
@@ -144,6 +177,7 @@ export function partnerPositions(ledger: Ledger, partners: PartnerInfo[]): Partn
       contributed,
       paidPersonally,
       withdrawn,
+      paidDues,
       salesHeld,
       putIn,
       fairShare,
@@ -199,7 +233,7 @@ export function filterExpenses<T extends ExpenseLike>(expenses: T[], f: ExpenseF
       (!f.from || e.date >= f.from) &&
       (!f.to || e.date <= f.to) &&
       (!cats || cats.has(e.categoryId)) &&
-      (payer === "all" || (payer === "fund" ? e.paidByPartnerId === null : e.paidByPartnerId === payer)),
+      (payer === "all" || (payer === "fund" ? e.paidByPartnerId === null && !e.onCredit : e.paidByPartnerId === payer)),
   );
 }
 

@@ -7,6 +7,7 @@ import {
   filterExpenses,
   fundBalance,
   labourStats,
+  outstandingDue,
   monthlyTotals,
   partnerPositions,
   settleUp,
@@ -331,5 +332,63 @@ describe("fish sales", () => {
     };
     expect(netSum(l, EQUAL)).toBe(0);
     expect(fundBalance(l)).toBe(30000 + 50000 - 9000);
+  });
+});
+
+describe("shop credit (বাকি)", () => {
+  const credit = (amount: number): ExpenseLike => exp(amount, { onCredit: true });
+  const duePay = (amount: number, paidByPartnerId: number | null = null) => ({
+    date: "2026-05-10",
+    amount,
+    paidByPartnerId,
+    voidedAt: null,
+  });
+  const base = (): Ledger => ({
+    contributions: [contrib(RAFI, 30000), contrib(REAZ, 30000), contrib(OVI, 30000)],
+    expenses: [exp(10000), credit(30000)],
+    withdrawals: [],
+  });
+
+  it("a credit purchase is a cost now but takes no cash out of the box", () => {
+    const l = base();
+    expect(totalExpense(l.expenses)).toBe(40000);
+    expect(fundBalance(l)).toBe(90000 - 10000);
+    expect(outstandingDue(l)).toBe(30000);
+  });
+
+  it("positions still sum to zero while the shop is unpaid (the debt is shared)", () => {
+    expect(netSum(base(), EQUAL)).toBe(0);
+  });
+
+  it("paying from the fund lowers the cash box and the debt, nets stay balanced", () => {
+    const l = { ...base(), duePayments: [duePay(12000)] };
+    expect(fundBalance(l)).toBe(80000 - 12000);
+    expect(outstandingDue(l)).toBe(18000);
+    expect(netSum(l, EQUAL)).toBe(0);
+  });
+
+  it("a partner paying from their own pocket gets credit for it", () => {
+    const l = { ...base(), duePayments: [duePay(30000, OVI)] };
+    expect(fundBalance(l)).toBe(80000); // box untouched
+    expect(outstandingDue(l)).toBe(0);
+    const p = byId(l, EQUAL).get(OVI)!;
+    expect(p.paidDues).toBe(30000);
+    expect(p.putIn).toBe(30000 + 30000);
+    expect(netSum(l, EQUAL)).toBe(0);
+  });
+
+  it("voided credit rows and payments do not count", () => {
+    const l: Ledger = {
+      ...base(),
+      expenses: [exp(10000), { ...credit(30000), voidedAt: new Date() }],
+      duePayments: [{ ...duePay(5000), voidedAt: new Date() }],
+    };
+    expect(outstandingDue(l)).toBe(0);
+    expect(fundBalance(l)).toBe(80000);
+  });
+
+  it("the fund payer filter leaves credit purchases out", () => {
+    expect(totalExpense(filterExpenses(base().expenses, { payer: "fund" }))).toBe(10000);
+    expect(totalExpense(filterExpenses(base().expenses, { payer: "all" }))).toBe(40000);
   });
 });

@@ -5,14 +5,17 @@
 // the same entry twice even if an earlier attempt actually reached it.
 import { saveExpenseAction } from "@/app/(app)/add/actions";
 import { saveMoneyAction, type MoneyInput } from "@/app/(app)/contribute/actions";
-import { saveSaleAction, type SaleFormInput } from "@/app/(app)/sale/actions";
+import { saveDuePaymentAction } from "@/app/(app)/dues/actions";
+import { saveSaleAction } from "@/app/(app)/sale/actions";
 
+/** A form's text fields (plus the receipt photo as a data URL) kept on the phone until it can be sent. */
 export type ExpensePayload = Record<string, string> & { receiptDataUrl?: string };
 
 export type OutboxItem =
   | { id: string; kind: "expense"; payload: ExpensePayload; summary: string; savedAt: number; error?: string }
   | { id: string; kind: "money"; payload: MoneyInput; summary: string; savedAt: number; error?: string }
-  | { id: string; kind: "sale"; payload: SaleFormInput; summary: string; savedAt: number; error?: string };
+  | { id: string; kind: "sale"; payload: ExpensePayload; summary: string; savedAt: number; error?: string }
+  | { id: string; kind: "due"; payload: ExpensePayload; summary: string; savedAt: number; error?: string };
 
 const KEY = "farm-outbox";
 const EVENT = "farm-outbox-change";
@@ -90,7 +93,9 @@ export async function flushOutbox(): Promise<number> {
             ? await saveExpenseAction(await expenseFormData(item.payload))
             : item.kind === "money"
               ? await saveMoneyAction(item.payload)
-              : await saveSaleAction(item.payload);
+              : item.kind === "sale"
+                ? await saveSaleAction(await expenseFormData(item.payload))
+                : await saveDuePaymentAction(await expenseFormData(item.payload));
         if (res.ok) {
           discard(item.id);
           sent++;

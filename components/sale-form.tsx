@@ -6,10 +6,11 @@ import { saveSaleAction, type SaleFormInput } from "@/app/(app)/sale/actions";
 import { ChoiceChips } from "@/components/choice-chips";
 import { DateField } from "@/components/date-field";
 import { Keypad } from "@/components/keypad";
+import { ReceiptField } from "@/components/receipt-field";
 import { PondChips } from "@/components/pond-chips";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { isNetworkError, queue } from "@/lib/client/outbox";
+import { fileToDataUrl, isNetworkError, queue, type ExpensePayload } from "@/lib/client/outbox";
 import { taka, todayISO } from "@/lib/format";
 import type { PartnerOption, PondOption } from "@/lib/server/queries";
 import { cn } from "@/lib/utils";
@@ -37,32 +38,41 @@ export function SaleForm({
   const [receivedBy, setReceivedBy] = useState<number>(initial?.receivedByPartnerId ?? 0);
   const [date, setDate] = useState(initial?.date ?? todayISO());
   const [note, setNote] = useState(initial?.note ?? "");
+  const [receipt, setReceipt] = useState<File | null>(null);
+  const [keepReceipt, setKeepReceipt] = useState(Boolean(initial?.hasReceipt));
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const amount = Number(amountStr || 0);
 
   function save() {
     if (amount <= 0) return setError("টাকার অঙ্ক দিন।");
-    const input: SaleFormInput = {
-      id: initial?.id,
-      clientId: editing ? null : clientId,
-      date,
-      amount,
-      fish,
-      weightKg: kg ? Number(kg) : null,
-      buyer,
-      pondId,
-      receivedByPartnerId: receivedBy || null,
-      note,
-    };
+    const fd = new FormData();
+    if (editing) fd.set("id", String(initial!.id));
+    else fd.set("clientId", clientId);
+    fd.set("date", date);
+    fd.set("amount", String(amount));
+    fd.set("fish", fish);
+    if (kg) fd.set("weightKg", kg);
+    fd.set("buyer", buyer);
+    if (pondId) fd.set("pondId", String(pondId));
+    if (receivedBy) fd.set("receivedByPartnerId", String(receivedBy));
+    fd.set("note", note);
+    if (receipt) fd.set("receipt", receipt);
+    else if (keepReceipt) fd.set("keepReceipt", "1");
     startTransition(async () => {
       try {
-        const res = await saveSaleAction(input);
+        const res = await saveSaleAction(fd);
         if (!res.ok) return setError(res.error);
         router.push(editing ? "/ledger?type=sale" : "/?saved=1");
       } catch (err) {
         if (editing || !isNetworkError(err)) return setError("সংরক্ষণ করা যায়নি, আবার চেষ্টা করুন।");
-        queue({ id: clientId, kind: "sale", payload: input, summary: `মাছ বিক্রি ${taka(amount)}`, savedAt: Date.now() });
+        // No connection: keep it on this phone and send it later.
+        const payload: ExpensePayload = {};
+        fd.forEach((v, k) => {
+          if (typeof v === "string") payload[k] = v;
+        });
+        if (receipt) payload.receiptDataUrl = await fileToDataUrl(receipt);
+        queue({ id: clientId, kind: "sale", payload, summary: `মাছ বিক্রি ${taka(amount)}`, savedAt: Date.now() });
         setClientId(crypto.randomUUID());
         router.push("/");
       }
@@ -124,6 +134,15 @@ export function SaleForm({
         <Input value={buyer} onChange={(e) => setBuyer(e.target.value)} placeholder="ক্রেতা / আড়ত" className="h-12 text-base" />
         <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="নোট" maxLength={200} className="h-12 text-base" />
       </section>
+
+      <ReceiptField
+        file={receipt}
+        keep={keepReceipt}
+        onFile={setReceipt}
+        onKeep={setKeepReceipt}
+        onError={setError}
+        label="রসিদ / হিসাবের ছবি (ইচ্ছা হলে)"
+      />
 
       {error && (
         <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-destructive">

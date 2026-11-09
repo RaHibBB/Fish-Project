@@ -1,9 +1,11 @@
 // Plain-text summary for sharing on WhatsApp (or any app) — no paid API involved.
+import { duesByShop } from "./dues";
 import { bnDate, bnMonth, monthOf, taka } from "./format";
 import {
   allocate,
   filterExpenses,
   fundBalance,
+  outstandingDue,
   partnerPositions,
   settleUp,
   totalExpense,
@@ -41,6 +43,12 @@ export function buildShareText(opts: {
     lines.push("", "*সবার সমান ভাগে লাভ/ক্ষতি*");
     const share = allocate(income - total, partners);
     for (const p of partners) lines.push(`${p.name}: ${taka(share.get(p.id) ?? 0, { signed: true })}`);
+  }
+  const owed = outstandingDue(ledger);
+  if (owed > 0) {
+    lines.push("", "*দোকানে বাকি*");
+    for (const d of duesByShop(ledger.expenses, ledger.duePayments).filter((x) => x.due > 0)) lines.push(`${d.shop}: ${taka(d.due)}`);
+    lines.push(`মোট বাকি: ${taka(owed)}`);
   }
   lines.push("", "*কে কত টাকা দিয়েছেন*");
   for (const p of positions) lines.push(`${p.name}: ${taka(p.putIn)}`);

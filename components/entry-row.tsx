@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowDownLeft, ArrowUpRight, Fish, Paperclip } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Fish, HandCoins, Paperclip } from "lucide-react";
 import { CategoryIcon } from "@/components/category-icon";
 import { bnDate, taka, toBnDigits } from "@/lib/format";
 import type { LedgerEntry } from "@/lib/ledger";
@@ -26,6 +26,8 @@ export function EntryRow({ entry, showDate = false }: { entry: LedgerEntry; show
         >
           {entry.kind === "sale" ? (
             <Fish className="size-5" />
+          ) : entry.kind === "duepayment" ? (
+            <HandCoins className="size-5" />
           ) : entry.kind === "contribution" ? (
             <ArrowDownLeft className="size-5" />
           ) : (
@@ -39,6 +41,9 @@ export function EntryRow({ entry, showDate = false }: { entry: LedgerEntry; show
           {entry.labourCount ? (
             <span className="shrink-0 text-sm text-muted-foreground">· {toBnDigits(entry.labourCount)} জন</span>
           ) : null}
+          {entry.onCredit && (
+            <span className="shrink-0 rounded bg-amber-500/15 px-1.5 text-xs font-semibold text-amber-700">বাকি</span>
+          )}
           {entry.hasReceipt && <Paperclip className="size-3.5 shrink-0 text-muted-foreground" aria-label="রসিদ আছে" />}
         </div>
         <div className="truncate text-sm text-muted-foreground">

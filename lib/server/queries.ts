@@ -3,7 +3,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import { DATA_TAG } from "./cache";
 import { asc, desc, eq, notInArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { auditLog, categories, contributions, expenses, feedings, partners, ponds, sales, settings, withdrawals } from "@/lib/db/schema";
+import { auditLog, categories, contributions, duePayments, expenses, feedings, partners, ponds, sales, settings, withdrawals } from "@/lib/db/schema";
 import { DEFAULT_LABOUR_WAGE } from "@/lib/db/seed-data";
 
 // Every read is cached in the shared cache under DATA_TAG and expired by dataChanged() on every
@@ -70,7 +70,7 @@ export async function getCategories(): Promise<CategoryOption[]> {
 }
 
 /**
- * Every expense, contribution, withdrawal and sale (voided ones included, so they can be shown).
+ * Every expense, contribution, withdrawal, sale and shop-credit payment (voided ones included, so they can be shown).
  * The farm has a few hundred rows a year, so computing totals in memory with lib/money.ts
  * keeps one tested code path for every screen.
  */
@@ -78,13 +78,14 @@ export async function getLedger() {
   "use cache: remote";
   cacheTag(DATA_TAG);
   cacheLife("max");
-  const [e, c, w, s] = await Promise.all([
+  const [e, c, w, s, d] = await Promise.all([
     db.select().from(expenses).orderBy(desc(expenses.date), desc(expenses.id)),
     db.select().from(contributions).orderBy(desc(contributions.date), desc(contributions.id)),
     db.select().from(withdrawals).orderBy(desc(withdrawals.date), desc(withdrawals.id)),
     db.select().from(sales).orderBy(desc(sales.date), desc(sales.id)),
+    db.select().from(duePayments).orderBy(desc(duePayments.date), desc(duePayments.id)),
   ]);
-  return { expenses: e, contributions: c, withdrawals: w, sales: s };
+  return { expenses: e, contributions: c, withdrawals: w, sales: s, duePayments: d };
 }
 
 /** Most recent non-voided expense, for the "আগেরটা আবার" button. */

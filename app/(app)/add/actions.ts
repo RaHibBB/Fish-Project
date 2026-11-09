@@ -21,6 +21,7 @@ export async function saveExpenseAction(form: FormData): Promise<ActionResult> {
   try {
     const id = optionalInt(form.get("id"));
     const paidBy = String(form.get("paidBy") ?? "fund");
+    const onCredit = paidBy === "credit"; // বাকি: bought from a shop, nobody has paid yet
     const clientId = id === null ? String(form.get("clientId") ?? "") || null : null;
 
     // A re-send of an entry that already arrived: done, don't upload the photo again.
@@ -43,7 +44,9 @@ export async function saveExpenseAction(form: FormData): Promise<ActionResult> {
       categoryId: Number(form.get("categoryId") ?? 0),
       amount: Number(form.get("amount") ?? 0),
       description: String(form.get("description") ?? ""),
-      paidByPartnerId: paidBy === "fund" ? null : Number(paidBy),
+      paidByPartnerId: paidBy === "fund" || onCredit ? null : Number(paidBy),
+      onCredit,
+      shop: onCredit ? String(form.get("shop") ?? "") : "",
       labourCount: optionalInt(form.get("labourCount")),
       labourRate: optionalInt(form.get("labourRate")),
       receiptUrl,

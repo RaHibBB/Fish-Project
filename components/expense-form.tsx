@@ -1,16 +1,16 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, Check, Minus, Pencil, Plus, Repeat2, X } from "lucide-react";
+import { Check, Minus, Pencil, Plus, Repeat2 } from "lucide-react";
 import { saveExpenseAction } from "@/app/(app)/add/actions";
 import { CategoryIcon } from "@/components/category-icon";
 import { ChoiceChips } from "@/components/choice-chips";
 import { DateField } from "@/components/date-field";
 import { Keypad } from "@/components/keypad";
+import { ReceiptField } from "@/components/receipt-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { compressImage } from "@/lib/client/compress-image";
 import { taka, toBnDigits, todayISO } from "@/lib/format";
 import type { CategoryOption, PartnerOption, PondOption } from "@/lib/server/queries";
 import { PondChips } from "@/components/pond-chips";
@@ -39,6 +39,9 @@ export type ExpenseDraft = {
   labourRate: number | null;
   hasReceipt?: boolean;
   pondId?: number | null;
+  /** bought on credit (বাকি) from `shop` */
+  onCredit?: boolean;
+  shop?: string;
 };
 
 export function ExpenseForm({
@@ -48,10 +51,13 @@ export function ExpenseForm({
   last,
   initial,
   ponds = [],
+  shops = [],
 }: {
   categories: CategoryOption[];
   partners: PartnerOption[];
   ponds?: PondOption[];
+  /** shop names used before, offered while typing */
+  shops?: string[];
   wage: number;
   last?: ExpenseDraft | null;
   initial?: ExpenseDraft;
@@ -65,7 +71,10 @@ export function ExpenseForm({
   const [editingRate, setEditingRate] = useState(false);
   const [description, setDescription] = useState(initial?.description ?? "");
   const [date, setDate] = useState(initial?.date ?? todayISO());
-  const [paidBy, setPaidBy] = useState<string>(initial?.paidByPartnerId ? String(initial.paidByPartnerId) : "fund");
+  const draftPaidBy = (d?: { paidByPartnerId: number | null; onCredit?: boolean } | null) =>
+    d?.onCredit ? "credit" : d?.paidByPartnerId ? String(d.paidByPartnerId) : "fund";
+  const [paidBy, setPaidBy] = useState<string>(draftPaidBy(initial));
+  const [shop, setShop] = useState(initial?.shop ?? "");
   const [receipt, setReceipt] = useState<File | null>(null);
   const [keepReceipt, setKeepReceipt] = useState(Boolean(initial?.hasReceipt));
   const [showAll, setShowAll] = useState(false);
@@ -75,7 +84,6 @@ export function ExpenseForm({
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const bySlug = new Map(categories.map((c) => [c.slug, c]));
   const selected = categories.find((c) => c.id === categoryId) ?? null;
@@ -84,6 +92,7 @@ export function ExpenseForm({
   const amount = isLabour ? count * rate : Number(amountStr || 0);
   const quickIds = new Set(QUICK.map((q) => bySlug.get(q.slug)?.id));
   const moreCategories = categories.filter((c) => !quickIds.has(c.id) && (!c.archived || c.id === categoryId));
+  const onCredit = paidBy === "credit";
   const canSave = selected !== null && amount > 0 && !pending;
 
   function pickCategory(id: number) {
@@ -99,24 +108,19 @@ export function ExpenseForm({
     setCountStr(last.labourCount ? String(last.labourCount) : "");
     setRate(last.labourRate ?? wage);
     setDescription(last.description);
-    setPaidBy(last.paidByPartnerId ? String(last.paidByPartnerId) : "fund");
+    setPaidBy(draftPaidBy(last));
+    setShop(last.shop ?? "");
     setFlash(null);
     setError(null);
-  }
-
-  async function onPickReceipt(file: File | undefined) {
-    if (!file) return;
-    setError(null);
-    try {
-      setReceipt(await compressImage(file));
-    } catch {
-      setError("ছবিটি ছোট করা গেল না, অন্য ছবি দিন।");
-    }
   }
 
   function save(another: boolean) {
     if (!canSave) {
       setError(selected ? "টাকার অঙ্ক দিন।" : "খাত বাছুন।");
+      return;
+    }
+    if (onCredit && !shop.trim()) {
+      setError("দোকানের নাম লিখুন।");
       return;
     }
     const fd = new FormData();
@@ -126,6 +130,7 @@ export function ExpenseForm({
     fd.set("amount", String(amount));
     fd.set("description", description);
     fd.set("paidBy", paidBy);
+    if (onCredit) fd.set("shop", shop.trim());
     if (isLabour) {
       fd.set("labourCount", String(count));
       fd.set("labourRate", String(rate));
@@ -327,8 +332,33 @@ export function ExpenseForm({
         <ChoiceChips
           value={paidBy}
           onChange={setPaidBy}
-          options={[{ value: "fund", label: "ফান্ড থেকে" }, ...partners.map((p) => ({ value: String(p.id), label: p.name }))]}
+          options={[
+            { value: "fund", label: "ফান্ড থেকে" },
+            ...partners.map((p) => ({ value: String(p.id), label: p.name })),
+            { value: "credit", label: "বাকি (দোকানে)" },
+          ]}
         />
+        {onCredit && (
+          <div className="space-y-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
+            <Input
+              value={shop}
+              onChange={(e) => setShop(e.target.value)}
+              list="shop-list"
+              maxLength={80}
+              placeholder="দোকানের নাম (যেমন: রহিম ফিড)"
+              className="h-12 bg-background text-base"
+              aria-label="দোকানের নাম"
+            />
+            <datalist id="shop-list">
+              {shops.map((n) => (
+                <option key={n} value={n} />
+              ))}
+            </datalist>
+            <p className="text-xs text-muted-foreground">
+              খরচ এখনই গোনা হবে। টাকা না দেওয়া পর্যন্ত ফান্ড থেকে কাটা যাবে না — পরে &quot;বাকি&quot; পেজ থেকে শোধ করুন।
+            </p>
+          </div>
+        )}
       </section>
 
       <section className="space-y-2">
@@ -349,40 +379,7 @@ export function ExpenseForm({
         />
       </section>
 
-      <section className="space-y-2">
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={(e) => onPickReceipt(e.target.files?.[0])}
-        />
-        {receipt || keepReceipt ? (
-          <div className="flex items-center gap-3 rounded-xl border p-3">
-            <Camera className="size-5 text-primary" />
-            <span className="flex-1 text-sm">
-              {receipt ? `রসিদের ছবি (${toBnDigits(Math.round(receipt.size / 1024))} KB)` : "রসিদের ছবি আছে"}
-            </span>
-            <button
-              type="button"
-              aria-label="ছবি সরান"
-              onClick={() => {
-                setReceipt(null);
-                setKeepReceipt(false);
-                if (fileRef.current) fileRef.current.value = "";
-              }}
-              className="flex size-9 items-center justify-center rounded-full active:bg-muted"
-            >
-              <X className="size-5" />
-            </button>
-          </div>
-        ) : (
-          <Button type="button" variant="outline" className="h-12 w-full text-base" onClick={() => fileRef.current?.click()}>
-            <Camera className="size-5" /> রসিদের ছবি (ইচ্ছা হলে)
-          </Button>
-        )}
-      </section>
+      <ReceiptField file={receipt} keep={keepReceipt} onFile={setReceipt} onKeep={setKeepReceipt} onError={setError} />
 
       {error && (
         <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-destructive">

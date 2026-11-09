@@ -48,3 +48,34 @@ describe("share text", () => {
     expect(text).toContain("রাফি: +৳৬,০০০");
   });
 });
+
+describe("buildShareText with shop credit", () => {
+  it("lists what is owed to each shop", () => {
+    const text = buildShareText({
+      farmName: "খামার",
+      today: "2026-10-12",
+      partners: [{ id: 1, name: "রাফি", shareBp: 10000 }],
+      ledger: {
+        contributions: [{ date: "2026-10-01", partnerId: 1, amount: 10000, voidedAt: null }],
+        expenses: [{ date: "2026-10-05", categoryId: 1, amount: 30000, paidByPartnerId: null, onCredit: true, shop: "রহিম ফিড", voidedAt: null }],
+        withdrawals: [],
+        sales: [],
+        duePayments: [{ date: "2026-10-08", amount: 5000, paidByPartnerId: null, shop: "রহিম ফিড", voidedAt: null }],
+      },
+    });
+    expect(text).toContain("*দোকানে বাকি*");
+    expect(text).toContain("রহিম ফিড: ৳২৫,০০০");
+    expect(text).toContain("মোট বাকি: ৳২৫,০০০");
+    expect(text).toContain("ক্যাশ বাক্স: ৳৫,০০০"); // 10,000 in − 5,000 paid to the shop
+  });
+
+  it("says nothing about credit when nothing is owed", () => {
+    const text = buildShareText({
+      farmName: "খামার",
+      today: "2026-10-12",
+      partners: [{ id: 1, name: "রাফি", shareBp: 10000 }],
+      ledger: { contributions: [], expenses: [], withdrawals: [], sales: [] },
+    });
+    expect(text).not.toContain("বাকি");
+  });
+});

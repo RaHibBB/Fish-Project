@@ -3,7 +3,7 @@ import { EntryRow } from "@/components/entry-row";
 import { LedgerFilters } from "@/components/ledger-filters";
 import { PageHeader } from "@/components/page-header";
 import { bnDateLong, taka, toBnDigits } from "@/lib/format";
-import { buildEntries, filterEntries, groupByDay, type LedgerFilter } from "@/lib/ledger";
+import { buildEntries, filterEntries, groupByDay, receiptPath, type LedgerFilter } from "@/lib/ledger";
 import Link from "next/link";
 import { getCategories, getLedger, getPartners, getPonds } from "@/lib/server/queries";
 
@@ -51,9 +51,9 @@ async function Ledger({ searchParams }: { searchParams: PageProps<"/ledger">["se
       {filter.type === "receipt" && shown.length > 0 && (
         <div className="grid grid-cols-3 gap-1 p-1">
           {shown.map((e) => (
-            <Link key={e.id} href={`/ledger/expense/${e.id}`} className="relative block aspect-square overflow-hidden rounded-md bg-muted">
+            <Link key={`${e.kind}-${e.id}`} href={`/ledger/${e.kind}/${e.id}`} className="relative block aspect-square overflow-hidden rounded-md bg-muted">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`/receipts/${e.id}`} alt={e.title} loading="lazy" className="size-full object-cover" />
+              <img src={receiptPath(e.kind, e.id)} alt={e.title} loading="lazy" className="size-full object-cover" />
               <span className="absolute inset-x-0 bottom-0 bg-black/55 px-1 py-0.5 text-[11px] text-white">
                 {taka(e.amount)}
               </span>

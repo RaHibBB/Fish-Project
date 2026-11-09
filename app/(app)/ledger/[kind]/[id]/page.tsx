@@ -7,8 +7,8 @@ import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button";
 import { VoidPanel } from "@/components/void-panel";
 import { bnDate, bnDateLong, bnDateTime, taka, toBnDigits } from "@/lib/format";
-import type { EntryKind } from "@/lib/ledger";
-import { getCategory, getContribution, getExpense, getSale, getWithdrawal, getEntryHistory, isEntryKind } from "@/lib/server/entry";
+import { receiptPath, type EntryKind } from "@/lib/ledger";
+import { getCategory, getContribution, getDuePayment, getExpense, getSale, getWithdrawal, getEntryHistory, isEntryKind } from "@/lib/server/entry";
 import { getCurrentPartner } from "@/lib/server/auth";
 import { getCategories, getPeople, getPonds } from "@/lib/server/queries";
 import { cn } from "@/lib/utils";
@@ -26,6 +26,18 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
     <div className="flex justify-between gap-4 py-2.5">
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="text-right font-medium">{children}</dd>
+    </div>
+  );
+}
+
+function ReceiptPhoto({ kind, id }: { kind: EntryKind; id: number }) {
+  return (
+    <div className="py-2.5">
+      <dt className="mb-2 text-muted-foreground">রসিদ</dt>
+      <a href={receiptPath(kind, id)} target="_blank" rel="noreferrer">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={receiptPath(kind, id)} alt="রসিদের ছবি" className="max-h-72 rounded-lg border" />
+      </a>
     </div>
   );
 }
@@ -72,17 +84,19 @@ async function Detail({ params }: { params: PageProps<"/ledger/[kind]/[id]">["pa
             {toBnDigits(e.labourCount)} জন × {taka(e.labourRate)}
           </Row>
         )}
-        <Row label="কে দিল">{e.paidByPartnerId === null ? "ফান্ড থেকে" : `${name(e.paidByPartnerId)} (নিজে)`}</Row>
+        <Row label="কে দিল">
+          {e.onCredit ? (
+            <>
+              বাকি — <Link href="/dues" className="text-primary underline">{e.shop}</Link>
+            </>
+          ) : e.paidByPartnerId === null ? (
+            "ফান্ড থেকে"
+          ) : (
+            `${name(e.paidByPartnerId)} (নিজে)`
+          )}
+        </Row>
         {e.description && <Row label="নোট">{e.description}</Row>}
-        {e.receiptUrl && (
-          <div className="py-2.5">
-            <dt className="mb-2 text-muted-foreground">রসিদ</dt>
-            <a href={`/receipts/${e.id}`} target="_blank" rel="noreferrer">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`/receipts/${e.id}`} alt="রসিদের ছবি" className="max-h-72 rounded-lg border" />
-            </a>
-          </div>
-        )}
+        {e.receiptUrl && <ReceiptPhoto kind="expense" id={e.id} />}
       </>
     );
   } else if (kind === "sale") {
@@ -104,6 +118,28 @@ async function Detail({ params }: { params: PageProps<"/ledger/[kind]/[id]">["pa
         {pond && <Row label="পুকুর">{pond}</Row>}
         {s.buyer && <Row label="ক্রেতা">{s.buyer}</Row>}
         {s.note && <Row label="নোট">{s.note}</Row>}
+        {s.receiptUrl && <ReceiptPhoto kind="sale" id={s.id} />}
+      </>
+    );
+  } else if (kind === "duepayment") {
+    const d = await getDuePayment(id);
+    if (!d) notFound();
+    if (d.voidedAt) voided = { reason: d.voidReason, by: d.voidedBy, at: d.voidedAt };
+    title = (
+      <div>
+        <div className="text-lg font-semibold">বাকি শোধ · {d.shop}</div>
+        <div className={cn("text-3xl font-bold", d.voidedAt && "line-through")}>{taka(d.amount)}</div>
+      </div>
+    );
+    body = (
+      <>
+        <Row label="তারিখ">{bnDateLong(d.date)}</Row>
+        <Row label="দোকান">
+          <Link href="/dues" className="text-primary underline">{d.shop}</Link>
+        </Row>
+        <Row label="কে দিল">{d.paidByPartnerId === null ? "ফান্ড থেকে" : `${name(d.paidByPartnerId)} (নিজে)`}</Row>
+        {d.note && <Row label="নোট">{d.note}</Row>}
+        {d.receiptUrl && <ReceiptPhoto kind="duepayment" id={d.id} />}
       </>
     );
   } else {
@@ -152,6 +188,8 @@ async function Detail({ params }: { params: PageProps<"/ledger/[kind]/[id]">["pa
         return `${toBnDigits(String(v))} কেজি`;
       case "receiptUrl":
         return "ছবি";
+      case "onCredit":
+        return v ? "বাকি" : "না";
       default:
         return String(v);
     }
@@ -173,6 +211,8 @@ async function Detail({ params }: { params: PageProps<"/ledger/[kind]/[id]">["pa
     weightKg: "ওজন",
     fish: "মাছ",
     buyer: "ক্রেতা",
+    onCredit: "বাকিতে কেনা",
+    shop: "দোকান",
   };
 
   return (

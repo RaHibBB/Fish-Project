@@ -130,6 +130,7 @@ export function LedgerFilters({
             { value: "expense", label: "শুধু খরচ" },
             { value: "money", label: "জমা/ফেরত" },
             { value: "sale", label: "মাছ বিক্রি" },
+            { value: "due", label: "বাকি" },
             { value: "receipt", label: "রসিদের ছবি" },
           ]}
         />

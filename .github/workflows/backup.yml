@@ -70,7 +70,7 @@ jobs:
           OUT="backups/${DAY}"
           mkdir -p "$OUT"
           "$PG/pg_dump" --format=custom --no-owner --no-privileges --file "$OUT/farm.dump" "$DATABASE_URL"
-          for t in partners settings categories ponds expenses contributions withdrawals sales feedings audit_log; do
+          for t in partners settings categories ponds expenses contributions withdrawals sales due_payments feedings audit_log; do
             if [ "$t" = partners ]; then
               q="select id, name, phone, share_bp, sort_order, created_at from partners order by id"
             else
@@ -94,7 +94,7 @@ jobs:
           REPORT="$OUT/RESTORE-CHECK.txt"
           echo "Restore check $(TZ=Asia/Dhaka date '+%F %H:%M') — rows in live DB vs restored copy" > "$REPORT"
           ok=1
-          for t in partners settings categories ponds expenses contributions withdrawals sales feedings audit_log; do
+          for t in partners settings categories ponds expenses contributions withdrawals sales due_payments feedings audit_log; do
             live=$("$PG/psql" "$DATABASE_URL" -tAc "select count(*) from $t")
             restored=$("$PG/psql" "$TEST_URL" -tAc "select count(*) from $t" 2>/dev/null || echo "missing")
             mark="OK"; [ "$live" = "$restored" ] || { mark="MISMATCH"; ok=0; }

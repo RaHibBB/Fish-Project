@@ -5,8 +5,10 @@ import { MoneyForm } from "@/components/money-form";
 import { PageHeader } from "@/components/page-header";
 import { requirePartner } from "@/lib/server/auth";
 import { SaleForm } from "@/components/sale-form";
-import { getContribution, getExpense, getSale, getWithdrawal, isEntryKind } from "@/lib/server/entry";
-import { getCategories, getPartners, getPonds, getSettings } from "@/lib/server/queries";
+import { DuePaymentForm } from "@/components/due-payment-form";
+import { duesByShop } from "@/lib/dues";
+import { getContribution, getDuePayment, getExpense, getSale, getWithdrawal, isEntryKind } from "@/lib/server/entry";
+import { getCategories, getLedger, getPartners, getPonds, getSettings } from "@/lib/server/queries";
 
 async function Edit({ params }: { params: PageProps<"/ledger/[kind]/[id]/edit">["params"] }) {
   const partner = await requirePartner();
@@ -33,19 +35,43 @@ async function Edit({ params }: { params: PageProps<"/ledger/[kind]/[id]/edit">[
           pondId: s.pondId,
           receivedByPartnerId: s.receivedByPartnerId,
           note: s.note,
+          hasReceipt: Boolean(s.receiptUrl),
+        }}
+      />
+    );
+  }
+
+  if (kind === "duepayment") {
+    const [d, ledger] = await Promise.all([getDuePayment(id), getLedger()]);
+    if (!d || d.voidedAt) notFound();
+    // The most this payment may be edited up to: what is owed to the shop plus what this payment already covers.
+    const owed = duesByShop(ledger.expenses, ledger.duePayments).find((s) => s.shop.toLowerCase() === d.shop.trim().toLowerCase())?.due ?? 0;
+    return (
+      <DuePaymentForm
+        shops={[{ shop: d.shop, due: owed + d.amount }]}
+        partners={partners}
+        initial={{
+          id: d.id,
+          date: d.date,
+          shop: d.shop,
+          amount: d.amount,
+          paidByPartnerId: d.paidByPartnerId,
+          note: d.note,
+          hasReceipt: Boolean(d.receiptUrl),
         }}
       />
     );
   }
 
   if (kind === "expense") {
-    const [e, categories, settings] = await Promise.all([getExpense(id), getCategories(), getSettings()]);
+    const [e, categories, settings, ledger] = await Promise.all([getExpense(id), getCategories(), getSettings(), getLedger()]);
     if (!e || e.voidedAt) notFound();
     return (
       <ExpenseForm
         categories={categories}
         partners={partners}
         ponds={ponds}
+        shops={duesByShop(ledger.expenses, ledger.duePayments).map((x) => x.shop)}
         wage={settings.labourDailyWage}
         initial={{
           id: e.id,
@@ -58,6 +84,8 @@ async function Edit({ params }: { params: PageProps<"/ledger/[kind]/[id]/edit">[
           labourRate: e.labourRate,
           hasReceipt: Boolean(e.receiptUrl),
           pondId: e.pondId,
+          onCredit: e.onCredit,
+          shop: e.shop,
         }}
       />
     );

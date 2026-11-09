@@ -16,6 +16,10 @@ const MESSAGES: Record<string, string> = {
   too_big: "রসিদের ছবি ২০০ KB এর বেশি।",
   not_configured: "রসিদ আপলোড চালু নেই।",
   phone_taken: "এই ফোন নম্বর দিয়ে আগে থেকেই একটি অ্যাকাউন্ট আছে।",
+  credit_paid_by: "বাকিতে কেনা খরচে আলাদা কেউ দেননি — কে দিল থেকে 'বাকি' বাছুন।",
+  shop_required: "দোকানের নাম লিখুন।",
+  due_has_payments: "এই দোকানে টাকা দেওয়া হয়ে গেছে — আগে ওই 'বাকি শোধ' এন্ট্রি বাতিল করুন।",
+  due_exceeded: "এই দোকানের বাকির চেয়ে বেশি টাকা দেওয়া যাবে না।",
   invalid_phone: "ফোন নম্বর সঠিক নয় — বাংলাদেশি 01XXXXXXXXX, অন্য দেশের হলে +কোড সহ (যেমন +971…)।",
 };
 
@@ -30,6 +34,7 @@ const FIELD_MESSAGES: Record<string, string> = {
   note: "নোট ২০০ অক্ষরের মধ্যে রাখুন।",
   reason: "বাতিলের কারণ লিখুন।",
   method: "কীভাবে দিলেন বাছুন।",
+  shop: "দোকানের নাম লিখুন (৮০ অক্ষরের মধ্যে)।",
 };
 
 /** Turn any error from a write into a short Bengali message for the form. */

@@ -1,7 +1,7 @@
-// Unified list of expenses, contributions and withdrawals for the হিসাব screen and Home.
+// Unified list of expenses, contributions, withdrawals, sales and shop-credit payments for the হিসাব screen and Home.
 import { toBnDigits } from "./format";
 
-export type EntryKind = "expense" | "contribution" | "withdrawal" | "sale";
+export type EntryKind = "expense" | "contribution" | "withdrawal" | "sale" | "duepayment";
 
 export type LedgerEntry = {
   kind: EntryKind;
@@ -19,6 +19,10 @@ export type LedgerEntry = {
   payerLabel: string;
   labourCount: number | null;
   hasReceipt: boolean;
+  /** bought on credit (বাকি) — nobody has paid the shop yet */
+  onCredit: boolean;
+  /** shop name for credit purchases and due payments, else "" */
+  shop: string;
   pondId: number | null;
   voided: boolean;
   voidReason: string | null;
@@ -46,6 +50,8 @@ export function buildEntries(
       paidByPartnerId: number | null;
       labourCount: number | null;
       receiptUrl: string | null;
+      onCredit?: boolean;
+      shop?: string;
     })[];
     contributions: (Row & { partnerId: number; note: string; method: string })[];
     withdrawals: (Row & { partnerId: number; note: string })[];
@@ -56,7 +62,9 @@ export function buildEntries(
       note: string;
       receivedByPartnerId: number | null;
       pondId: number | null;
+      receiptUrl: string | null;
     })[];
+    duePayments?: (Row & { shop: string; paidByPartnerId: number | null; note: string; receiptUrl: string | null })[];
   },
   categories: Cat[],
   partners: Named[],
@@ -84,9 +92,15 @@ export function buildEntries(
         icon: c?.icon ?? null,
         color: c?.color ?? null,
         partnerId: e.paidByPartnerId,
-        payerLabel: e.paidByPartnerId === null ? "ফান্ড থেকে" : `${partnerName(e.paidByPartnerId)} দিয়েছেন`,
+        payerLabel: e.onCredit
+          ? `বাকি · ${e.shop ?? ""}`
+          : e.paidByPartnerId === null
+            ? "ফান্ড থেকে"
+            : `${partnerName(e.paidByPartnerId)} দিয়েছেন`,
         labourCount: e.labourCount,
         hasReceipt: Boolean(e.receiptUrl),
+        onCredit: Boolean(e.onCredit),
+        shop: e.onCredit ? (e.shop ?? "") : "",
         pondId: (e as { pondId?: number | null }).pondId ?? null,
       };
     }),
@@ -102,6 +116,8 @@ export function buildEntries(
       payerLabel: `${partnerName(c.partnerId)} · ${METHOD_LABEL[c.method] ?? c.method}`,
       labourCount: null,
       hasReceipt: false,
+      onCredit: false,
+      shop: "",
       pondId: null,
     })),
     ...data.withdrawals.map((w) => ({
@@ -116,6 +132,8 @@ export function buildEntries(
       payerLabel: partnerName(w.partnerId),
       labourCount: null,
       hasReceipt: false,
+      onCredit: false,
+      shop: "",
       pondId: null,
     })),
     ...(data.sales ?? []).map((x) => ({
@@ -129,8 +147,26 @@ export function buildEntries(
       partnerId: x.receivedByPartnerId,
       payerLabel: x.receivedByPartnerId === null ? "ফান্ডে জমা" : `${partnerName(x.receivedByPartnerId)} নিয়েছেন`,
       labourCount: null,
-      hasReceipt: false,
+      hasReceipt: Boolean(x.receiptUrl),
+      onCredit: false,
+      shop: "",
       pondId: x.pondId,
+    })),
+    ...(data.duePayments ?? []).map((d) => ({
+      ...base(d),
+      kind: "duepayment" as const,
+      title: `বাকি শোধ · ${d.shop}`,
+      note: d.note,
+      categoryId: null,
+      icon: null,
+      color: null,
+      partnerId: d.paidByPartnerId,
+      payerLabel: d.paidByPartnerId === null ? "ফান্ড থেকে" : `${partnerName(d.paidByPartnerId)} দিয়েছেন`,
+      labourCount: null,
+      hasReceipt: Boolean(d.receiptUrl),
+      onCredit: false,
+      shop: d.shop,
+      pondId: null,
     })),
   ];
   // Newest day first; within a day, newest entry first.
@@ -145,7 +181,7 @@ export type LedgerFilter = {
   /** "fund", or a partner id (as string) */
   payer?: string;
   /** expense | money (contributions + withdrawals) | sale | receipt (expenses with a photo) */
-  type?: "expense" | "money" | "sale" | "receipt";
+  type?: "expense" | "money" | "sale" | "receipt" | "due";
   pondId?: number;
   q?: string;
 };
@@ -160,12 +196,13 @@ export function filterEntries(entries: LedgerEntry[], f: LedgerFilter): LedgerEn
     if (f.type === "expense" && e.kind !== "expense") return false;
     if (f.type === "money" && e.kind !== "contribution" && e.kind !== "withdrawal") return false;
     if (f.type === "sale" && e.kind !== "sale") return false;
+    if (f.type === "due" && !e.onCredit && e.kind !== "duepayment") return false;
     if (f.type === "receipt" && !e.hasReceipt) return false;
     if (f.pondId && e.pondId !== f.pondId) return false;
     if (f.categoryId && e.categoryId !== f.categoryId) return false;
     if (f.payer) {
       if (f.payer === "fund") {
-        if ((e.kind !== "expense" && e.kind !== "sale") || e.partnerId !== null) return false;
+        if ((e.kind !== "expense" && e.kind !== "sale") || e.partnerId !== null || e.onCredit) return false;
       } else if (e.partnerId !== Number(f.payer)) return false;
     }
     if (q) {
@@ -193,4 +230,9 @@ export function groupByDay(entries: LedgerEntry[]): DayGroup[] {
     if (e.kind === "sale" && !e.voided) g.incomeTotal += e.amount;
   }
   return groups;
+}
+
+/** URL of an entry's receipt photo (expenses keep their original short path). */
+export function receiptPath(kind: EntryKind, id: number) {
+  return kind === "expense" ? `/receipts/${id}` : `/receipts/${kind}/${id}`;
 }

@@ -11,6 +11,7 @@ type ExpenseRow = Ledger["expenses"][number] & {
   description: string;
   labourRate: number | null;
   voidReason: string | null;
+  shop?: string;
 };
 type MoneyRow = { id: number; date: string; partnerId: number; amount: number; note: string; voidedAt: Date | string | null; voidReason: string | null };
 type FullLedger = {
@@ -96,10 +97,32 @@ export function expensesCsv(ledger: FullLedger, categories: Cat[], partners: Par
         e.amount,
         e.labourCount,
         e.labourRate,
-        name(e.paidByPartnerId),
+        e.onCredit ? `বাকি — ${e.shop ?? ""}` : name(e.paidByPartnerId),
         e.description,
         status(e),
       ]),
+  ];
+}
+
+type DuePaymentRow = {
+  id: number;
+  date: string;
+  shop: string;
+  amount: number;
+  paidByPartnerId: number | null;
+  note: string;
+  voidedAt: Date | string | null;
+  voidReason: string | null;
+};
+
+/** Payments made towards shop credit (বাকি শোধ). */
+export function duePaymentsCsv(payments: DuePaymentRow[], partners: PartnerInfo[]): Row[] {
+  const name = namer(partners);
+  return [
+    ["তারিখ", "দোকান", "টাকা", "কে দিল", "নোট", "অবস্থা"],
+    ...[...payments]
+      .sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)
+      .map((p) => [ddmmyyyy(p.date), p.shop, p.amount, name(p.paidByPartnerId), p.note, status(p)]),
   ];
 }
 
@@ -127,13 +150,14 @@ export function monthlyCsv(ledger: FullLedger): Row[] {
 export function partnersCsv(ledger: FullLedger, partners: PartnerInfo[]): Row[] {
   const positions = partnerPositions(ledger, partners);
   return [
-    ["পার্টনার", "ভাগ %", "ফান্ডে জমা", "নিজে খরচ করেছেন", "ফেরত নিয়েছেন", "বিক্রির টাকা হাতে", "মোট দিয়েছেন", "ভাগের খরচ", "ফান্ডে ভাগ", "অবস্থান"],
+    ["পার্টনার", "ভাগ %", "ফান্ডে জমা", "নিজে খরচ করেছেন", "ফেরত নিয়েছেন", "দোকানের বাকি শোধ করেছেন", "বিক্রির টাকা হাতে", "মোট দিয়েছেন", "ভাগের খরচ", "ফান্ডে ভাগ", "অবস্থান"],
     ...positions.map((p) => [
       p.name,
       p.shareBp / 100,
       p.contributed,
       p.paidPersonally,
       p.withdrawn,
+      p.paidDues,
       p.salesHeld,
       p.putIn,
       p.fairShare,

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import Link from "next/link";
-import { CheckCircle2, Fish, History, Images, LogIn, Plus, Settings, Wallet, Wheat } from "lucide-react";
+import { CheckCircle2, Fish, History, Images, LogIn, Plus, Settings, Store, Wallet, Wheat } from "lucide-react";
 import { CopyButton } from "@/components/copy-button";
 import { EntryRow } from "@/components/entry-row";
 import { InstallApp } from "@/components/install-app";
@@ -10,7 +10,8 @@ import { ShareButton } from "@/components/share-button";
 import { buttonVariants } from "@/components/ui/button";
 import { bnDate, monthOf, taka, toBnDigits, todayISO } from "@/lib/format";
 import { buildEntries } from "@/lib/ledger";
-import { allocate, filterExpenses, fundBalance, partnerPositions, settleUp, totalExpense, totalIncome, type Transfer } from "@/lib/money";
+import { duesByShop } from "@/lib/dues";
+import { allocate, filterExpenses, fundBalance, outstandingDue, partnerPositions, settleUp, totalExpense, totalIncome, type Transfer } from "@/lib/money";
 import { buildShareText } from "@/lib/summary";
 import { getCurrentPartner } from "@/lib/server/auth";
 import { getCategories, getLedger, getPartners, getSettings } from "@/lib/server/queries";
@@ -40,6 +41,8 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
   const monthTotal = totalExpense(filterExpenses(ledger.expenses, { from: `${monthOf(today)}-01`, to: today }));
   const allTotal = totalExpense(ledger.expenses);
   const income = totalIncome(ledger.sales);
+  const owed = outstandingDue(ledger);
+  const owingShops = duesByShop(ledger.expenses, ledger.duePayments).filter((x) => x.due > 0).length;
   const shareText = buildShareText({ farmName: settings.farmName, ledger, partners, today });
   const positions = partnerPositions(ledger, partners);
   const totalPutIn = positions.reduce((a, p) => a + p.putIn, 0);
@@ -106,10 +109,11 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
       </section>
 
       {/* Farm shortcuts */}
-      <nav className="mx-4 grid grid-cols-4 gap-2 text-center text-xs">
+      <nav className="mx-4 grid grid-cols-5 gap-1.5 text-center text-xs">
         {[
           { href: "/sale", label: "মাছ বিক্রি", icon: Fish },
           { href: "/feeding", label: "খাবার লগ", icon: Wheat },
+          { href: "/dues", label: "বাকি", icon: Store },
           { href: "/activity", label: "পরিবর্তন", icon: History },
           { href: "/ledger?type=receipt", label: "রসিদ", icon: Images },
         ].map(({ href, label, icon: Icon }) => (
@@ -119,6 +123,23 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
           </Link>
         ))}
       </nav>
+
+      {/* Owed to shops */}
+      {owed > 0 && (
+        <Link
+          href="/dues"
+          className="mx-4 flex items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 active:bg-amber-500/20"
+        >
+          <span className="flex items-center gap-2">
+            <Store className="size-5 text-amber-600" />
+            <span>
+              <span className="block font-semibold">দোকানে বাকি আছে</span>
+              <span className="block text-xs text-muted-foreground">{toBnDigits(owingShops)}টি দোকান · দেখুন বা শোধ করুন</span>
+            </span>
+          </span>
+          <b className="text-lg text-amber-600 tabular-nums">{taka(owed)}</b>
+        </Link>
+      )}
 
       {/* Totals */}
       <section className="mx-4 grid grid-cols-3 gap-2 text-center">
@@ -247,9 +268,15 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
               <span>− মোট খরচ হয়েছে</span>
               <b className="tabular-nums">{taka(allTotal)}</b>
             </div>
+            {owed > 0 && (
+              <div className="flex justify-between">
+                <span>+ দোকানে বাকি (এখনো দেওয়া হয়নি)</span>
+                <b className="tabular-nums">{taka(owed)}</b>
+              </div>
+            )}
             <div className="mt-1 flex justify-between border-t pt-1 text-base">
               <span>= এখন হাতে বাকি</span>
-              <b className={cn("tabular-nums", fund < 0 && "text-destructive")}>{taka(totalPutIn - allTotal)}</b>
+              <b className={cn("tabular-nums", fund < 0 && "text-destructive")}>{taka(totalPutIn - allTotal + owed)}</b>
             </div>
           </div>
         )}
@@ -272,10 +299,11 @@ async function Home({ searchParams }: { searchParams: PageProps<"/">["searchPara
               <span>
                 {income > 0 ? "ভাগের খরচ (বিক্রি বাদে)" : "ভাগের খরচ"}: <b className="text-foreground">{taka(p.fairShare)}</b>
               </span>
-              {(p.paidPersonally > 0 || p.withdrawn > 0) && (
+              {(p.paidPersonally > 0 || p.withdrawn > 0 || p.paidDues > 0) && (
                 <span className="col-span-2 text-xs">
                   = ফান্ডে জমা {taka(p.contributed)}
                   {p.paidPersonally > 0 && ` + নিজে খরচ করেছেন ${taka(p.paidPersonally)}`}
+                  {p.paidDues > 0 && ` + দোকানের বাকি দিয়েছেন ${taka(p.paidDues)}`}
                   {p.withdrawn > 0 && ` − ফেরত নিয়েছেন ${taka(p.withdrawn)}`}
                 </span>
               )}

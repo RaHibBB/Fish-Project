@@ -114,6 +114,9 @@ export const expenses = pgTable(
     labourRate: integer("labour_rate"),
     receiptUrl: text("receipt_url"),
     pondId: integer("pond_id").references(() => ponds.id),
+    /** Bought on credit (বাকি) from `shop`: counts as cost now, cash leaves the fund only when paid (due_payments). */
+    onCredit: boolean("on_credit").notNull().default(false),
+    shop: text("shop").notNull().default(""),
     clientId: clientId(),
     ...voidColumns(),
     /** null only for rows created by scripts (import). */
@@ -123,6 +126,10 @@ export const expenses = pgTable(
   },
   (t) => [
     check("expenses_amount_positive", sql`${t.amount} > 0`),
+    check(
+      "expenses_credit_fields",
+      sql`not ${t.onCredit} or (${t.paidByPartnerId} is null and length(trim(${t.shop})) > 0)`,
+    ),
     check(
       "expenses_labour_fields",
       sql`(${t.labourCount} is null or ${t.labourCount} > 0) and (${t.labourRate} is null or ${t.labourRate} > 0)`,
@@ -197,6 +204,7 @@ export const sales = pgTable(
     /** null = paid into the fund, otherwise the partner who received the cash. */
     receivedByPartnerId: integer("received_by_partner_id").references(() => partners.id),
     note: text("note").notNull().default(""),
+    receiptUrl: text("receipt_url"),
     clientId: clientId(),
     ...voidColumns(),
     createdBy: integer("created_by").references(() => partners.id),
@@ -208,6 +216,32 @@ export const sales = pgTable(
     check("sales_weight_positive", sql`${t.weightKg} is null or ${t.weightKg} > 0`),
     voidCheck("sales_void_fields", t),
     index("sales_date_idx").on(t.date),
+  ],
+);
+
+/** Payment towards a shop's credit (বাকি শোধ). Paid from the fund (null) or by a partner personally. */
+export const duePayments = pgTable(
+  "due_payments",
+  {
+    id: serial("id").primaryKey(),
+    date: date("date", { mode: "string" }).notNull(),
+    shop: text("shop").notNull(),
+    amount: integer("amount").notNull(),
+    /** null = paid from the common fund, otherwise the partner who paid personally. */
+    paidByPartnerId: integer("paid_by_partner_id").references(() => partners.id),
+    note: text("note").notNull().default(""),
+    receiptUrl: text("receipt_url"),
+    clientId: clientId(),
+    ...voidColumns(),
+    createdBy: integer("created_by").references(() => partners.id),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }),
+  },
+  (t) => [
+    check("due_payments_amount_positive", sql`${t.amount} > 0`),
+    check("due_payments_shop", sql`length(trim(${t.shop})) > 0`),
+    voidCheck("due_payments_void_fields", t),
+    index("due_payments_date_idx").on(t.date),
   ],
 );
 
@@ -265,5 +299,6 @@ export type Contribution = typeof contributions.$inferSelect;
 export type Withdrawal = typeof withdrawals.$inferSelect;
 export type Settings = typeof settings.$inferSelect;
 export type Sale = typeof sales.$inferSelect;
+export type DuePayment = typeof duePayments.$inferSelect;
 export type Pond = typeof ponds.$inferSelect;
 export type Feeding = typeof feedings.$inferSelect;

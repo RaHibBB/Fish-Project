@@ -1,6 +1,6 @@
 import { parseCategoryParams } from "@/lib/category-view";
 import { csvResponse } from "@/lib/csv";
-import { categoryCsv, expensesCsv, moneyCsv, monthlyCsv, partnersCsv, salesCsv } from "@/lib/exports";
+import { categoryCsv, duePaymentsCsv, expensesCsv, moneyCsv, monthlyCsv, partnersCsv, salesCsv } from "@/lib/exports";
 import { todayISO } from "@/lib/format";
 import { getCategories, getLedger, getPartners, getPonds } from "@/lib/server/queries";
 
@@ -25,6 +25,8 @@ export async function GET(req: Request, ctx: RouteContext<"/export/[name]">) {
       return csvResponse(`farm-monthly-${stamp}.csv`, monthlyCsv(ledger));
     case "sales":
       return csvResponse(`farm-sales-${stamp}.csv`, salesCsv(ledger.sales, partners, await getPonds()));
+    case "due-payments":
+      return csvResponse(`farm-due-payments-${stamp}.csv`, duePaymentsCsv(ledger.duePayments, partners));
     case "partners":
       return csvResponse(`farm-partners-${stamp}.csv`, partnersCsv(ledger, partners));
     default:

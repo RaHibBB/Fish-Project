@@ -3,7 +3,16 @@ import { and, eq } from "drizzle-orm";
 import { addDays, todayISO } from "@/lib/format";
 import type { DB } from "./client";
 import { auditLog, categories, expenses, partners } from "./schema";
-import { createContribution, createExpense, createWithdrawal, updateExpense, voidRow } from "./mutations";
+import {
+  createContribution,
+  createDuePayment,
+  createExpense,
+  createSale,
+  createWithdrawal,
+  updateDuePayment,
+  updateExpense,
+  voidRow,
+} from "./mutations";
 import { createTestDb } from "./test-db";
 
 let db: DB;
@@ -109,5 +118,91 @@ describe("contributions and withdrawals", () => {
     await expect(createWithdrawal(db, rafi, { date: todayISO(), partnerId: 999, amount: 1 })).rejects.toThrow(
       "unknown_partner",
     );
+  });
+});
+
+describe("shop credit (বাকি)", () => {
+  const credit = (shop: string, amount: number) =>
+    createExpense(db, rafi, { date: todayISO(), categoryId: feed, amount, paidByPartnerId: null, onCredit: true, shop });
+
+  it("saves a credit purchase with its shop and audit row", async () => {
+    const row = await credit("রহিম ফিড", 50000);
+    expect(row).toMatchObject({ onCredit: true, shop: "রহিম ফিড", paidByPartnerId: null });
+    expect((await audits("expenses", row.id))[0]).toMatchObject({ action: "create" });
+  });
+
+  it("needs a shop name, and nobody can have paid it", async () => {
+    const base = { date: todayISO(), categoryId: feed, amount: 100, onCredit: true };
+    await expect(createExpense(db, rafi, { ...base, paidByPartnerId: null, shop: "  " })).rejects.toThrow("shop_required");
+    await expect(createExpense(db, rafi, { ...base, paidByPartnerId: rafi, shop: "ক" })).rejects.toThrow("credit_paid_by");
+  });
+
+  it("forgets a shop name typed on a normal (paid) expense", async () => {
+    const row = await createExpense(db, rafi, { date: todayISO(), categoryId: feed, amount: 100, paidByPartnerId: null, shop: "ভুল" });
+    expect(row).toMatchObject({ onCredit: false, shop: "" });
+  });
+
+  it("records payments, never more than is owed, and logs edits", async () => {
+    await credit("করিম ঔষধ", 8000);
+    const p1 = await createDuePayment(db, rafi, { date: todayISO(), shop: "করিম ঔষধ", amount: 3000, paidByPartnerId: null });
+    expect(p1).toMatchObject({ shop: "করিম ঔষধ", amount: 3000, paidByPartnerId: null });
+    await expect(createDuePayment(db, rafi, { date: todayISO(), shop: "করিম ঔষধ", amount: 5001, paidByPartnerId: null })).rejects.toThrow(
+      "due_exceeded",
+    );
+    await expect(createDuePayment(db, rafi, { date: todayISO(), shop: "অচেনা দোকান", amount: 1, paidByPartnerId: null })).rejects.toThrow(
+      "due_exceeded",
+    );
+    const p2 = await createDuePayment(db, rafi, { date: todayISO(), shop: " করিম ঔষধ ", amount: 5000, paidByPartnerId: rafi });
+    expect(p2.paidByPartnerId).toBe(rafi);
+    // editing p2 may use up to what it already covers
+    await updateDuePayment(db, rafi, p2.id, { date: todayISO(), shop: "করিম ঔষধ", amount: 4000, paidByPartnerId: rafi });
+    await expect(
+      updateDuePayment(db, rafi, p2.id, { date: todayISO(), shop: "করিম ঔষধ", amount: 5001, paidByPartnerId: rafi }),
+    ).rejects.toThrow("due_exceeded");
+    expect((await audits("due_payments", p2.id)).map((l) => l.action)).toEqual(["create", "update"]);
+  });
+
+  it("a re-sent payment returns the saved one instead of failing or duplicating", async () => {
+    await credit("তৃতীয় দোকান", 1000);
+    const input = { date: todayISO(), shop: "তৃতীয় দোকান", amount: 1000, paidByPartnerId: null, clientId: "due-resend-0001" };
+    const a = await createDuePayment(db, rafi, input);
+    const b = await createDuePayment(db, rafi, input);
+    expect(b.id).toBe(a.id);
+  });
+
+  it("voids a payment (kept, frozen) and refuses to delete rows", async () => {
+    await credit("চতুর্থ", 700);
+    const p = await createDuePayment(db, rafi, { date: todayISO(), shop: "চতুর্থ", amount: 700, paidByPartnerId: null });
+    const v = await voidRow(db, rafi, "due_payments", p.id, "ভুল দোকান");
+    expect(v.voidedBy).toBe(rafi);
+    await expect(db.execute("delete from due_payments" as never)).rejects.toThrow();
+  });
+});
+
+describe("sale receipt", () => {
+  it("keeps the receipt photo on a sale", async () => {
+    const row = await createSale(db, rafi, { date: todayISO(), amount: 25000, receiptUrl: "data:image/jpeg;base64,AAAA" });
+    expect(row.receiptUrl).toBe("data:image/jpeg;base64,AAAA");
+  });
+});
+
+describe("credit purchases that already have payments", () => {
+  it("can't be voided, lowered or turned into a normal expense while payments would exceed them", async () => {
+    const e = await createExpense(db, rafi, {
+      date: todayISO(),
+      categoryId: feed,
+      amount: 10000,
+      paidByPartnerId: null,
+      onCredit: true,
+      shop: "পঞ্চম দোকান",
+    });
+    await createDuePayment(db, rafi, { date: todayISO(), shop: "পঞ্চম দোকান", amount: 6000, paidByPartnerId: null });
+    const same = { date: todayISO(), categoryId: feed, paidByPartnerId: null, onCredit: true, shop: "পঞ্চম দোকান" };
+    await expect(voidRow(db, rafi, "expenses", e.id, "ভুল")).rejects.toThrow("due_has_payments");
+    await expect(updateExpense(db, rafi, e.id, { ...same, amount: 5000 })).rejects.toThrow("due_has_payments");
+    await expect(updateExpense(db, rafi, e.id, { ...same, amount: 10000, onCredit: false })).rejects.toThrow("due_has_payments");
+    // raising it is fine
+    const up = await updateExpense(db, rafi, e.id, { ...same, amount: 12000 });
+    expect(up.amount).toBe(12000);
   });
 });

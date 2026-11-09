@@ -34,6 +34,7 @@ const KIND: Record<string, string> = {
   contributions: "contribution",
   withdrawals: "withdrawal",
   sales: "sale",
+  due_payments: "duepayment",
 };
 
 export function describeActivity(
@@ -49,7 +50,8 @@ export function describeActivity(
       case "expenses": {
         const cat = lookup.categories.get(rec.categoryId as number) ?? "খরচ";
         const labour = typeof rec.labourCount === "number" ? ` (${toBnDigits(rec.labourCount)} জন)` : "";
-        what = `খরচ: ${cat}${labour}${amount}`;
+        const credit = rec.onCredit ? ` (বাকি — ${rec.shop ?? ""})` : "";
+        what = `খরচ: ${cat}${labour}${credit}${amount}`;
         break;
       }
       case "contributions":
@@ -60,6 +62,9 @@ export function describeActivity(
         break;
       case "sales":
         what = `মাছ বিক্রি${rec.fish ? ` (${rec.fish})` : ""}${amount}`;
+        break;
+      case "due_payments":
+        what = `বাকি শোধ: ${rec.shop ?? ""}${amount}`;
         break;
       case "feedings":
         what = `খাবার লগ ${typeof rec.feedKg === "number" ? `${toBnDigits(rec.feedKg)} কেজি` : ""}`.trim();
