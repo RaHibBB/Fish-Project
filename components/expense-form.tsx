@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Minus, Pencil, Plus, Repeat2 } from "lucide-react";
+import { Check, Repeat2 } from "lucide-react";
 import { saveExpenseAction } from "@/app/(app)/add/actions";
 import { CategoryIcon } from "@/components/category-icon";
 import { ChoiceChips } from "@/components/choice-chips";
@@ -47,7 +47,6 @@ export type ExpenseDraft = {
 export function ExpenseForm({
   categories,
   partners,
-  wage,
   last,
   initial,
   ponds = [],
@@ -58,17 +57,13 @@ export function ExpenseForm({
   ponds?: PondOption[];
   /** shop names used before, offered while typing */
   shops?: string[];
-  wage: number;
   last?: ExpenseDraft | null;
   initial?: ExpenseDraft;
 }) {
   const router = useRouter();
   const editing = initial?.id !== undefined;
   const [categoryId, setCategoryId] = useState<number | null>(initial?.categoryId ?? null);
-  const [amountStr, setAmountStr] = useState(initial && !initial.labourCount ? String(initial.amount) : "");
-  const [countStr, setCountStr] = useState(initial?.labourCount ? String(initial.labourCount) : "");
-  const [rate, setRate] = useState(initial?.labourRate ?? wage);
-  const [editingRate, setEditingRate] = useState(false);
+  const [amountStr, setAmountStr] = useState(initial ? String(initial.amount) : "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [date, setDate] = useState(initial?.date ?? todayISO());
   const draftPaidBy = (d?: { paidByPartnerId: number | null; onCredit?: boolean } | null) =>
@@ -87,9 +82,7 @@ export function ExpenseForm({
 
   const bySlug = new Map(categories.map((c) => [c.slug, c]));
   const selected = categories.find((c) => c.id === categoryId) ?? null;
-  const isLabour = selected?.slug === "labour";
-  const count = Number(countStr || 0);
-  const amount = isLabour ? count * rate : Number(amountStr || 0);
+  const amount = Number(amountStr || 0);
   const quickIds = new Set(QUICK.map((q) => bySlug.get(q.slug)?.id));
   const moreCategories = categories.filter((c) => !quickIds.has(c.id) && (!c.archived || c.id === categoryId));
   const onCredit = paidBy === "credit";
@@ -104,9 +97,7 @@ export function ExpenseForm({
   function repeatLast() {
     if (!last) return;
     setCategoryId(last.categoryId);
-    setAmountStr(last.labourCount ? "" : String(last.amount));
-    setCountStr(last.labourCount ? String(last.labourCount) : "");
-    setRate(last.labourRate ?? wage);
+    setAmountStr(String(last.amount));
     setDescription(last.description);
     setPaidBy(draftPaidBy(last));
     setShop(last.shop ?? "");
@@ -131,9 +122,10 @@ export function ExpenseForm({
     fd.set("description", description);
     fd.set("paidBy", paidBy);
     if (onCredit) fd.set("shop", shop.trim());
-    if (isLabour) {
-      fd.set("labourCount", String(count));
-      fd.set("labourRate", String(rate));
+    // An old labour entry keeps its worker count while its amount is unchanged.
+    if (initial?.labourCount && initial.labourRate && amount === initial.labourCount * initial.labourRate) {
+      fd.set("labourCount", String(initial.labourCount));
+      fd.set("labourRate", String(initial.labourRate));
     }
     if (pondId) fd.set("pondId", String(pondId));
     if (!editing) fd.set("clientId", clientId);
@@ -143,8 +135,6 @@ export function ExpenseForm({
     const resetForNext = () => {
       setCategoryId(null);
       setAmountStr("");
-      setCountStr("");
-      setRate(wage);
       setDescription("");
       setReceipt(null);
       setError(null);
@@ -265,65 +255,13 @@ export function ExpenseForm({
         )}
       </section>
 
-      {/* Amount / labour count */}
+      {/* Amount */}
       <section className="space-y-3">
-        {isLabour ? (
-          <div className="flex h-32 flex-col justify-center rounded-2xl bg-muted/60 px-3">
-            <div className="flex items-center justify-between gap-3">
-              <button
-                type="button"
-                aria-label="এক জন কম"
-                onClick={() => setCountStr(String(Math.max(0, count - 1) || ""))}
-                className="flex size-14 items-center justify-center rounded-full bg-background shadow-sm active:scale-95"
-              >
-                <Minus className="size-7" />
-              </button>
-              <div className="text-center">
-                <div className="text-4xl leading-tight font-bold tabular-nums">{toBnDigits(count)}</div>
-                <div className="text-sm text-muted-foreground">জন শ্রমিক</div>
-              </div>
-              <button
-                type="button"
-                aria-label="এক জন বেশি"
-                onClick={() => setCountStr(String(count + 1))}
-                className="flex size-14 items-center justify-center rounded-full bg-background shadow-sm active:scale-95"
-              >
-                <Plus className="size-7" />
-              </button>
-            </div>
-            <div className="mt-1 flex items-center justify-center gap-2 text-lg">
-              {editingRate ? (
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  autoFocus
-                  defaultValue={rate}
-                  onBlur={(e) => {
-                    const v = Math.round(Number(e.target.value));
-                    if (v > 0) setRate(v);
-                    setEditingRate(false);
-                  }}
-                  className="h-10 w-28 text-center text-lg"
-                  aria-label="দৈনিক মজুরি"
-                />
-              ) : (
-                <button type="button" onClick={() => setEditingRate(true)} className="flex items-center gap-1 underline-offset-4 hover:underline">
-                  {toBnDigits(count)} × {taka(rate)} <Pencil className="size-3.5 text-muted-foreground" />
-                </button>
-              )}
-              <span>=</span>
-              <span className="text-2xl font-bold">{taka(amount)}</span>
-            </div>
-          </div>
-        ) : (
-          <div className="flex h-32 flex-col justify-center rounded-2xl bg-muted/60 px-4 text-center">
-            <div className={cn("text-4xl font-bold tabular-nums", !amountStr && "text-muted-foreground")}>
-              {taka(amount)}
-            </div>
-            <div className="text-sm text-muted-foreground">{selected ? selected.name : "খাত বাছুন, তারপর টাকা"}</div>
-          </div>
-        )}
-        <Keypad value={isLabour ? countStr : amountStr} onChange={isLabour ? setCountStr : setAmountStr} maxLength={isLabour ? 3 : 8} />
+        <div className="flex h-32 flex-col justify-center rounded-2xl bg-muted/60 px-4 text-center">
+          <div className={cn("text-4xl font-bold tabular-nums", !amountStr && "text-muted-foreground")}>{taka(amount)}</div>
+          <div className="text-sm text-muted-foreground">{selected ? selected.name : "খাত বাছুন, তারপর টাকা"}</div>
+        </div>
+        <Keypad value={amountStr} onChange={setAmountStr} maxLength={8} />
       </section>
 
       {/* Who paid */}

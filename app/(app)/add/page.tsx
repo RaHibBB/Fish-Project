@@ -3,14 +3,13 @@ import { PageHeader } from "@/components/page-header";
 import { ExpenseForm } from "@/components/expense-form";
 import { requirePartner } from "@/lib/server/auth";
 import { duesByShop } from "@/lib/dues";
-import { getCategories, getLastExpense, getLedger, getPartners, getPonds, getSettings } from "@/lib/server/queries";
+import { getCategories, getLastExpense, getLedger, getPartners, getPonds } from "@/lib/server/queries";
 
 async function AddExpense() {
   await requirePartner();
-  const [categories, partners, settings, last, ponds, ledger] = await Promise.all([
+  const [categories, partners, last, ponds, ledger] = await Promise.all([
     getCategories(),
     getPartners(),
-    getSettings(),
     getLastExpense(),
     getPonds(),
     getLedger(),
@@ -22,7 +21,6 @@ async function AddExpense() {
       partners={partners}
       ponds={ponds}
       shops={shops}
-      wage={settings.labourDailyWage}
       last={
         last && {
           date: last.date,

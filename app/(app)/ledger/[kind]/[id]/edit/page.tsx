@@ -8,7 +8,7 @@ import { SaleForm } from "@/components/sale-form";
 import { DuePaymentForm } from "@/components/due-payment-form";
 import { duesByShop } from "@/lib/dues";
 import { getContribution, getDuePayment, getExpense, getSale, getWithdrawal, isEntryKind } from "@/lib/server/entry";
-import { getCategories, getLedger, getPartners, getPonds, getSettings } from "@/lib/server/queries";
+import { getCategories, getLedger, getPartners, getPonds } from "@/lib/server/queries";
 
 async function Edit({ params }: { params: PageProps<"/ledger/[kind]/[id]/edit">["params"] }) {
   const partner = await requirePartner();
@@ -64,7 +64,7 @@ async function Edit({ params }: { params: PageProps<"/ledger/[kind]/[id]/edit">[
   }
 
   if (kind === "expense") {
-    const [e, categories, settings, ledger] = await Promise.all([getExpense(id), getCategories(), getSettings(), getLedger()]);
+    const [e, categories, ledger] = await Promise.all([getExpense(id), getCategories(), getLedger()]);
     if (!e || e.voidedAt) notFound();
     return (
       <ExpenseForm
@@ -72,7 +72,6 @@ async function Edit({ params }: { params: PageProps<"/ledger/[kind]/[id]/edit">[
         partners={partners}
         ponds={ponds}
         shops={duesByShop(ledger.expenses, ledger.duePayments).map((x) => x.shop)}
-        wage={settings.labourDailyWage}
         initial={{
           id: e.id,
           date: e.date,
